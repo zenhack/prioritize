@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Accessors
 import Browser
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, for, name, type_)
 import Html.Events exposing (onClick, onInput)
@@ -12,15 +13,28 @@ type alias Flags =
     {}
 
 
+type alias JobId =
+    Int
+
+
 type alias Model =
-    { jobs : List Job
+    { jobs : Dict JobId Job
     , newJob : JobForm
+    , nextId : JobId
+    , now : Time.Posix
     }
 
 
 type alias JobForm =
     { title : String
     , period : String
+    }
+
+
+initJobForm : JobForm
+initJobForm =
+    { title = ""
+    , period = ""
     }
 
 
@@ -58,6 +72,30 @@ makeJob jobForm =
                         }
 
 
+overDue : Time.Posix -> Job -> Maybe Int
+overDue now job =
+    case job.lastDone of
+        Nothing ->
+            Just 0
+
+        Just lastDone ->
+            let
+                nowMillis =
+                    Time.posixToMillis now
+
+                dueMillis =
+                    Time.posixToMillis lastDone + job.period
+
+                dueIn =
+                    dueMillis - nowMillis
+            in
+            if dueIn < 0 then
+                Nothing
+
+            else
+                Just dueIn
+
+
 type alias Job =
     { title : String
     , period : Int
@@ -72,15 +110,15 @@ type alias Accessor super sub =
 type Msg
     = UpdateFormField (Accessor JobForm String) String
     | NewJob Job
+    | JobDone JobId
 
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( { jobs = []
-      , newJob =
-            { title = ""
-            , period = ""
-            }
+    ( { jobs = Dict.empty
+      , newJob = initJobForm
+      , nextId = 0
+      , now = Time.millisToPosix 0
       }
     , Cmd.none
     )
@@ -97,20 +135,33 @@ view model =
     }
 
 
-viewJob : Job -> Html Msg
-viewJob job =
+viewJob : JobId -> Job -> Html Msg
+viewJob id job =
     div []
         [ p [] [ text "Title: ", text job.title ]
+        , button [ onClick (JobDone id) ] [ text "Done" ]
         ]
 
 
 viewJobs : Model -> Html Msg
 viewJobs model =
-    ol []
-        (List.map
-            (\job -> li [] [ viewJob job ])
-            model.jobs
-        )
+    let
+        jobsHtmlByDue =
+            Dict.toList model.jobs
+                |> List.filterMap
+                    (\( id, job ) ->
+                        overDue model.now job
+                            |> Maybe.map
+                                (\amount ->
+                                    { overDueBy = amount
+                                    , html = viewJob id job
+                                    }
+                                )
+                    )
+                |> List.sortBy .overDueBy
+                |> List.map .html
+    in
+    ol [] jobsHtmlByDue
 
 
 viewNewJob : JobForm -> Html Msg
@@ -154,7 +205,21 @@ update msg model =
             )
 
         NewJob job ->
-            ( { model | jobs = job :: model.jobs }
+            ( { model
+                | jobs = Dict.insert model.nextId job model.jobs
+                , nextId = model.nextId + 1
+                , newJob = initJobForm
+              }
+            , Cmd.none
+            )
+
+        JobDone jobId ->
+            ( { model
+                | jobs =
+                    Dict.update jobId
+                        (Maybe.map (\job -> { job | lastDone = Just model.now }))
+                        model.jobs
+              }
             , Cmd.none
             )
 
