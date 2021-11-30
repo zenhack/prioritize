@@ -245,7 +245,9 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every 3000 NewNow
+    -- Update every 15 minutes. We only actually care about day
+    -- changeovers, so we don't check very often.
+    Time.every (1000 * 60 * 15) NewNow
 
 
 main =
