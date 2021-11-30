@@ -120,6 +120,7 @@ type Msg
     = UpdateFormField (Accessor JobForm String) String
     | NewJob Job
     | JobDone JobId
+    | DeleteJob JobId
     | NewNow Time.Posix
     | SaveResponse (Result Http.Error ())
 
@@ -171,6 +172,7 @@ viewJob id job =
             , text " day(s)"
             ]
         , button [ onClick (JobDone id) ] [ text "Done" ]
+        , button [ onClick (DeleteJob id) ] [ text "Delete" ]
         ]
 
 
@@ -258,6 +260,13 @@ update msg model =
                                 (Maybe.map (\job -> { job | lastDone = Just model.now }))
                                 model.jobs
                     }
+            in
+            ( m, saveData m )
+
+        DeleteJob jobId ->
+            let
+                m =
+                    { model | jobs = Dict.remove jobId model.jobs }
             in
             ( m, saveData m )
 
