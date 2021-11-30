@@ -75,7 +75,20 @@ func main() {
 		paramsLock.Lock()
 		defer paramsLock.Unlock()
 		templateParams.Data = string(newData)
-		// TODO: write to disk.
+		err = ioutil.WriteFile(dataPath+".tmp", newData, 0600)
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		err = os.Rename(dataPath+".tmp", dataPath)
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
 	})
 
 	panic(http.ListenAndServe(":8000", nil))
