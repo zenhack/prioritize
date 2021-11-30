@@ -143,6 +143,11 @@ viewJob : JobId -> Job -> Html Msg
 viewJob id job =
     div []
         [ p [] [ text "Title: ", text job.title ]
+        , p []
+            [ text "Every "
+            , text (String.fromInt (job.period // dayInMilliseconds))
+            , text " day(s)"
+            ]
         , button [ onClick (JobDone id) ] [ text "Done" ]
         ]
 
