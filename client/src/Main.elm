@@ -85,7 +85,10 @@ overDue : Time.Posix -> Job -> Maybe Int
 overDue now job =
     case job.lastDone of
         Nothing ->
-            Just 0
+            -- If the job has literally never been done, treat it as very
+            -- overdue. TODO: figure out if elm has a max int constant
+            -- somewhere.
+            Just 1000000
 
         Just lastDone ->
             let
