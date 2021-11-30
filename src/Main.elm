@@ -86,14 +86,14 @@ overDue now job =
                 dueMillis =
                     Time.posixToMillis lastDone + job.period
 
-                dueIn =
-                    dueMillis - nowMillis
+                overDueBy =
+                    nowMillis - dueMillis
             in
-            if dueIn < 0 then
+            if overDueBy < 0 then
                 Nothing
 
             else
-                Just dueIn
+                Just overDueBy
 
 
 type alias Job =
@@ -111,6 +111,7 @@ type Msg
     = UpdateFormField (Accessor JobForm String) String
     | NewJob Job
     | JobDone JobId
+    | NewNow Time.Posix
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -158,6 +159,7 @@ viewJobs model =
                                 )
                     )
                 |> List.sortBy .overDueBy
+                |> List.reverse
                 |> List.map .html
     in
     ol [] jobsHtmlByDue
@@ -224,10 +226,15 @@ update msg model =
             , Cmd.none
             )
 
+        NewNow now ->
+            ( { model | now = now }
+            , Cmd.none
+            )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Time.every 3000 NewNow
 
 
 main =
