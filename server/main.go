@@ -3,10 +3,12 @@ package main
 import (
 	_ "embed"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 )
 
 var (
@@ -38,9 +40,11 @@ func main() {
 	chkfatal(err)
 
 	indexTemplate := template.Must(template.New("index").Parse(templateData))
+
 	templateParams := &TemplateParams{
 		Data: string(data),
 	}
+	paramsLock := &sync.RWMutex{}
 
 	http.HandleFunc("/elm.js", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
@@ -50,7 +54,28 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
+		paramsLock.RLock()
+		defer paramsLock.RUnlock()
 		indexTemplate.Execute(w, templateParams)
+	})
+
+	http.HandleFunc("/data", func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != "POST" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		newData, err := io.ReadAll(req.Body)
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		paramsLock.Lock()
+		defer paramsLock.Unlock()
+		templateParams.Data = string(newData)
+		// TODO: write to disk.
 	})
 
 	panic(http.ListenAndServe(":8000", nil))
