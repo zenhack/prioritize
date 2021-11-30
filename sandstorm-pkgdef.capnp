@@ -54,18 +54,18 @@ const pkgdef :Spk.PackageDefinition = (
         #marketBig = (svg = embed "path/to/market-big-300x300.svg"),
       ),
 
-      website = "http://example.com",
+      website = "https://github.com/zenhack/prioritize",
       # This should be the app's main website url.
 
-      codeUrl = "http://example.com",
+      codeUrl = "https://github.com/zenhack/prioritize",
       # URL of the app's source code repository, e.g. a GitHub URL.
       # Required if you specify a license requiring redistributing code, but optional otherwise.
 
-      license = (none = void),
+      license = (openSource = apache2),
       # The license this package is distributed under.  See
       # https://docs.sandstorm.io/en/latest/developing/publishing-apps/#license
 
-      categories = [],
+      categories = [productivity],
       # A list of categories/genres to which this app belongs, sorted with best fit first.
       # See the list of categories at
       # https://docs.sandstorm.io/en/latest/developing/publishing-apps/#categories
