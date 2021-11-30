@@ -4,7 +4,7 @@ import Accessors
 import Browser
 import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes exposing (disabled, for, name, type_)
+import Html.Attributes exposing (disabled, for, name, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Time
 
@@ -172,6 +172,7 @@ viewNewJob jobForm =
             , input
                 [ name "title"
                 , onInput (UpdateFormField recordTitle)
+                , value jobForm.title
                 ]
                 []
             ]
@@ -181,6 +182,7 @@ viewNewJob jobForm =
                 [ type_ "number"
                 , name "peroid"
                 , onInput (UpdateFormField recordPeriod)
+                , value jobForm.period
                 ]
                 []
             ]
