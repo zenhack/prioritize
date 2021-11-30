@@ -15,9 +15,9 @@ clean:
 	rm -f elm.*.js
 	rm -f $(server_exe)
 
-elm.opt.js: $(ELM_SRCS)
+client/elm.opt.js: $(ELM_SRCS)
 	$(ELM_MAKE_CMD) $@ --optimize
-elm.debug.js: $(ELM_SRCS)
+client/elm.debug.js: $(ELM_SRCS)
 	$(ELM_MAKE_CMD) $@ --debug
 
 .PHONY: all clean

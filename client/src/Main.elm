@@ -6,6 +6,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, for, name, type_, value)
 import Html.Events exposing (onClick, onInput)
+import Json.Decode as D
 import Time
 
 
@@ -122,7 +123,16 @@ type Msg
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    ( { jobs = Dict.empty
+    let
+        jobs =
+            case D.decodeString decodeJobs flags.data of
+                Ok v ->
+                    v
+
+                Err _ ->
+                    Dict.empty
+    in
+    ( { jobs = jobs
       , newJob = initJobForm
       , nextId = 0
       , now = Time.millisToPosix flags.now
@@ -257,3 +267,34 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
+decodeJobs : D.Decoder (Dict JobId Job)
+decodeJobs =
+    D.field "jobs" (decodeDict D.int decodeJob)
+
+
+decodeDict : D.Decoder comparable -> D.Decoder a -> D.Decoder (Dict comparable a)
+decodeDict decodeK decodeV =
+    D.list (decodeKv decodeK decodeV)
+        |> D.map Dict.fromList
+
+
+decodeKv : D.Decoder a -> D.Decoder b -> D.Decoder ( a, b )
+decodeKv decodeK decodeV =
+    D.map2 (\k v -> ( k, v ))
+        decodeK
+        decodeV
+
+
+decodeJob : D.Decoder Job
+decodeJob =
+    D.map3 Job
+        (D.field "title" D.string)
+        (D.field "period" D.int)
+        (D.field "lastDone" (D.nullable decodePosix))
+
+
+decodePosix : D.Decoder Time.Posix
+decodePosix =
+    D.map Time.millisToPosix D.int
