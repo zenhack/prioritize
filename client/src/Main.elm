@@ -14,7 +14,9 @@ dayInMilliseconds =
 
 
 type alias Flags =
-    {}
+    { now : Int
+    , data : String
+    }
 
 
 type alias JobId =
@@ -119,11 +121,11 @@ type Msg
 
 
 init : Flags -> ( Model, Cmd Msg )
-init _ =
+init flags =
     ( { jobs = Dict.empty
       , newJob = initJobForm
       , nextId = 0
-      , now = Time.millisToPosix 0
+      , now = Time.millisToPosix flags.now
       }
     , Cmd.none
     )

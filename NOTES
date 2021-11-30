@@ -1,0 +1,5 @@
+Next steps:
+
+* Write a server with the ability to store data.
+* Feed said data back to the client via flags.
+* Feed starting time to elm app via flags.
