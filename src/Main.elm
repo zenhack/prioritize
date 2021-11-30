@@ -126,10 +126,9 @@ init _ =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Hello, World!"
+    { title = "Task List"
     , body =
-        [ p [] [ text "Hello, World!" ]
-        , viewJobs model
+        [ viewJobs model
         , viewNewJob model.newJob
         ]
     }
