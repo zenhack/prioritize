@@ -9,6 +9,10 @@ import Html.Events exposing (onClick, onInput)
 import Time
 
 
+dayInMilliseconds =
+    1000 * 60 * 60 * 24
+
+
 type alias Flags =
     {}
 
@@ -60,13 +64,13 @@ makeJob jobForm =
             Nothing ->
                 Nothing
 
-            Just period ->
-                if period < 1 then
+            Just periodDays ->
+                if periodDays < 1 then
                     Nothing
 
                 else
                     Just
-                        { period = period
+                        { period = periodDays * dayInMilliseconds
                         , title = jobForm.title
                         , lastDone = Nothing
                         }
