@@ -6,7 +6,9 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, for, name, type_, value)
 import Html.Events exposing (onClick, onInput)
+import Http
 import Json.Decode as D
+import Json.Encode as E
 import Time
 
 
@@ -119,6 +121,7 @@ type Msg
     | NewJob Job
     | JobDone JobId
     | NewNow Time.Posix
+    | SaveResponse (Result Http.Error ())
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -131,10 +134,17 @@ init flags =
 
                 Err _ ->
                     Dict.empty
+
+        nextId =
+            -- nextId should be one greater than the largest ID so far.
+            Dict.toList jobs
+                |> List.map (\( k, _ ) -> k)
+                |> List.foldl max 0
+                |> (\x -> x + 1)
     in
     ( { jobs = jobs
       , newJob = initJobForm
-      , nextId = 0
+      , nextId = nextId
       , now = Time.millisToPosix flags.now
       }
     , Cmd.none
@@ -229,28 +239,36 @@ update msg model =
             )
 
         NewJob job ->
-            ( { model
-                | jobs = Dict.insert model.nextId job model.jobs
-                , nextId = model.nextId + 1
-                , newJob = initJobForm
-              }
-            , Cmd.none
-            )
+            let
+                m =
+                    { model
+                        | jobs = Dict.insert model.nextId job model.jobs
+                        , nextId = model.nextId + 1
+                        , newJob = initJobForm
+                    }
+            in
+            ( m, saveData m )
 
         JobDone jobId ->
-            ( { model
-                | jobs =
-                    Dict.update jobId
-                        (Maybe.map (\job -> { job | lastDone = Just model.now }))
-                        model.jobs
-              }
-            , Cmd.none
-            )
+            let
+                m =
+                    { model
+                        | jobs =
+                            Dict.update jobId
+                                (Maybe.map (\job -> { job | lastDone = Just model.now }))
+                                model.jobs
+                    }
+            in
+            ( m, saveData m )
 
         NewNow now ->
             ( { model | now = now }
             , Cmd.none
             )
+
+        SaveResponse _ ->
+            -- TODO: react in some way. Probably should report errors.
+            ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -258,6 +276,15 @@ subscriptions _ =
     -- Update every 15 minutes. We only actually care about day
     -- changeovers, so we don't check very often.
     Time.every (1000 * 60 * 15) NewNow
+
+
+saveData : Model -> Cmd Msg
+saveData model =
+    Http.post
+        { url = "/data"
+        , body = Http.jsonBody (encodeJobs model.jobs)
+        , expect = Http.expectWhatever SaveResponse
+        }
 
 
 main =
@@ -283,8 +310,8 @@ decodeDict decodeK decodeV =
 decodeKv : D.Decoder a -> D.Decoder b -> D.Decoder ( a, b )
 decodeKv decodeK decodeV =
     D.map2 (\k v -> ( k, v ))
-        decodeK
-        decodeV
+        (D.field "k" decodeK)
+        (D.field "v" decodeV)
 
 
 decodeJob : D.Decoder Job
@@ -298,3 +325,43 @@ decodeJob =
 decodePosix : D.Decoder Time.Posix
 decodePosix =
     D.map Time.millisToPosix D.int
+
+
+encodeJobs : Dict JobId Job -> E.Value
+encodeJobs jobs =
+    E.object [ ( "jobs", encodeDict E.int encodeJob jobs ) ]
+
+
+encodeDict : (k -> E.Value) -> (v -> E.Value) -> Dict k v -> E.Value
+encodeDict encodeK encodeV d =
+    Dict.toList d
+        |> E.list (\( k, v ) -> encodeKv (encodeK k) (encodeV v))
+
+
+encodeKv : E.Value -> E.Value -> E.Value
+encodeKv k v =
+    E.object
+        [ ( "k", k )
+        , ( "v", v )
+        ]
+
+
+encodeJob : Job -> E.Value
+encodeJob job =
+    E.object
+        [ ( "title", E.string job.title )
+        , ( "period", E.int job.period )
+        , ( "lastDone"
+          , case job.lastDone of
+                Nothing ->
+                    E.null
+
+                Just time ->
+                    encodePosix time
+          )
+        ]
+
+
+encodePosix : Time.Posix -> E.Value
+encodePosix time =
+    E.int (Time.posixToMillis time)
