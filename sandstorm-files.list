@@ -1,0 +1,18 @@
+# *** WARNING: GENERATED FILE ***
+# This file is automatically updated and rewritten in sorted order every time
+# the app runs in dev mode. You may manually add or remove files, but don't
+# expect comments or ordering to be retained.
+client/elm.opt.js
+etc/ld.so.cache
+lib64
+proc/cpuinfo
+sandstorm-http-bridge
+sandstorm-http-bridge-config
+sandstorm-manifest
+server/prioritize-app-server
+usr/lib/ld-2.33.so
+usr/lib/ld-linux-x86-64.so.2
+usr/lib/libc-2.33.so
+usr/lib/libc.so.6
+usr/lib/libpthread-2.33.so
+usr/lib/libpthread.so.0

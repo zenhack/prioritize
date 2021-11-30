@@ -8,16 +8,24 @@ server_exe := server/prioritize-app-server
 
 all: client/elm.opt.js client/elm.debug.js $(server_exe)
 
-$(server_exe): $(GO_SRCS)
-	cd server && go build
+dev: all
+	spk dev
+
+pack: prioritize.spk
+
+prioritize.spk: all
+	spk pack $@
 
 clean:
 	rm -f elm.*.js
 	rm -f $(server_exe)
+
+$(server_exe): $(GO_SRCS)
+	cd server && go build
 
 client/elm.opt.js: $(ELM_SRCS)
 	$(ELM_MAKE_CMD) `basename $@` --optimize
 client/elm.debug.js: $(ELM_SRCS)
 	$(ELM_MAKE_CMD) `basename $@` --debug
 
-.PHONY: all clean
+.PHONY: all clean pack dev

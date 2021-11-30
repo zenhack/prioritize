@@ -2,8 +2,10 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"html/template"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -34,7 +36,11 @@ func chkfatal(err error) {
 
 func main() {
 	data, err := ioutil.ReadFile(dataPath)
-	chkfatal(err)
+	if errors.Is(err, fs.ErrNotExist) {
+		data = nil
+	} else {
+		chkfatal(err)
+	}
 
 	jsSrc, err := ioutil.ReadFile(jsPath)
 	chkfatal(err)
