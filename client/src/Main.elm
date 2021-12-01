@@ -88,7 +88,7 @@ overDue now job =
             -- If the job has literally never been done, treat it as very
             -- overdue. TODO: figure out if elm has a max int constant
             -- somewhere.
-            Just 1000000
+            Just (1000 * dayInMilliseconds)
 
         Just lastDone ->
             let
