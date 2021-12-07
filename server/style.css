@@ -1,9 +1,23 @@
 
+:root {
+	font-size: 12pt;
+}
+
 .job {
 	border: 1px solid darkgrey;
 	padding: 0.5em;
 	border-radius: 5px;
 	margin-top: 0.5em;
+}
+
+.job h1 {
+	margin-top: 0px;
+	font-size: 14pt;
+}
+
+.job p {
+	margin-top: 0.6em;
+	margin-bottom: 0.6em;
 }
 
 .jobList {

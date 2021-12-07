@@ -157,7 +157,7 @@ view model =
 viewJob : { r | now : Time.Posix } -> JobId -> Job -> Html Msg
 viewJob { now } id job =
     div [ class "job" ]
-        [ p [] [ text job.title ]
+        [ h1 [] [ text job.title ]
         , p []
             [ text "Due every "
             , text (String.fromInt (job.period // dayInMilliseconds))
