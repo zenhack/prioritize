@@ -70,14 +70,14 @@ makeJob jobForm =
                         }
 
 
-overDue : Time.Posix -> Job -> Maybe Int
+overDue : Time.Posix -> Job -> Int
 overDue now job =
     case job.lastDone of
         Nothing ->
             -- If the job has literally never been done, treat it as very
             -- overdue. TODO: figure out if elm has a max int constant
             -- somewhere.
-            Just (1000 * dayInMilliseconds)
+            1000 * dayInMilliseconds
 
         Just lastDone ->
             let
@@ -90,11 +90,7 @@ overDue now job =
                 overDueBy =
                     nowMillis - dueMillis
             in
-            if overDueBy < 0 then
-                Nothing
-
-            else
-                Just overDueBy
+            overDueBy
 
 
 type alias Job =
@@ -187,18 +183,15 @@ viewJobs model =
     let
         jobsHtmlByDue =
             Dict.toList model.jobs
-                |> List.filterMap
+                |> List.map
                     (\( id, job ) ->
-                        overDue model.now job
-                            |> Maybe.map
-                                (\amount ->
-                                    { overDueBy = amount
-                                    , html = viewJob model id job
-                                    }
-                                )
+                        { overDueBy = overDue model.now job
+                        , html = viewJob model id job
+                        }
                     )
                 |> List.sortBy .overDueBy
                 |> List.reverse
+                |> List.filter (\v -> v.overDueBy >= 0)
                 |> List.map .html
     in
     ol [ class "jobList" ] jobsHtmlByDue
