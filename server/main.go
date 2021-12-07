@@ -22,6 +22,9 @@ var (
 
 	//go:embed index.html
 	templateData string
+
+	//go:embed style.css
+	stylesheet []byte
 )
 
 type TemplateParams struct {
@@ -56,6 +59,12 @@ func main() {
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Header().Set("Content-Length", strconv.Itoa(len(jsSrc)))
 		w.Write(jsSrc)
+	})
+
+	http.HandleFunc("/style.css", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "text/css")
+		w.Header().Set("Content-Length", strconv.Itoa(len(stylesheet)))
+		w.Write(stylesheet)
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {

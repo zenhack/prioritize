@@ -3,6 +3,7 @@ module Main exposing (main)
 import Accessors
 import Browser
 import Dict exposing (Dict)
+import GenAccessors as GA
 import Html exposing (..)
 import Html.Attributes exposing (disabled, for, name, type_, value)
 import Html.Events exposing (onClick, onInput)
@@ -45,18 +46,6 @@ initJobForm =
     { title = ""
     , period = ""
     }
-
-
-recordNewJob =
-    Accessors.makeOneToOne .newJob (\c r -> { r | newJob = c r.newJob })
-
-
-recordTitle =
-    Accessors.makeOneToOne .title (\c r -> { r | title = c r.title })
-
-
-recordPeriod =
-    Accessors.makeOneToOne .period (\c r -> { r | period = c r.period })
 
 
 makeJob : JobForm -> Maybe Job
@@ -208,7 +197,7 @@ viewNewJob jobForm =
             [ label [ for "title" ] [ text "Title: " ]
             , input
                 [ name "title"
-                , onInput (UpdateFormField recordTitle)
+                , onInput (UpdateFormField GA.title)
                 , value jobForm.title
                 ]
                 []
@@ -218,7 +207,7 @@ viewNewJob jobForm =
             , input
                 [ type_ "number"
                 , name "peroid"
-                , onInput (UpdateFormField recordPeriod)
+                , onInput (UpdateFormField GA.period)
                 , value jobForm.period
                 ]
                 []
@@ -239,7 +228,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateFormField accessor value ->
-            ( Accessors.set (recordNewJob << accessor) value model
+            ( Accessors.set (GA.newJob << accessor) value model
             , Cmd.none
             )
 
