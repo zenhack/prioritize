@@ -1,0 +1,11 @@
+
+.job {
+	border: 1px solid darkgrey;
+	padding: 0.5em;
+	border-radius: 5px;
+	margin-top: 0.5em;
+}
+
+.jobList {
+	padding: 0.5em;
+}

@@ -5,7 +5,7 @@ import Browser
 import Dict exposing (Dict)
 import GenAccessors as GA
 import Html exposing (..)
-import Html.Attributes exposing (disabled, for, name, type_, value)
+import Html.Attributes exposing (class, disabled, for, name, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as D
@@ -154,15 +154,29 @@ view model =
     }
 
 
-viewJob : JobId -> Job -> Html Msg
-viewJob id job =
-    div []
-        [ p [] [ text "Title: ", text job.title ]
+viewJob : { r | now : Time.Posix } -> JobId -> Job -> Html Msg
+viewJob { now } id job =
+    div [ class "job" ]
+        [ p [] [ text job.title ]
         , p []
-            [ text "Every "
+            [ text "Due every "
             , text (String.fromInt (job.period // dayInMilliseconds))
             , text " day(s)"
             ]
+        , case job.lastDone of
+            Nothing ->
+                p [] [ text "Never done before" ]
+
+            Just lastDone ->
+                let
+                    lastDoneDiff =
+                        Time.posixToMillis now - Time.posixToMillis lastDone
+                in
+                p []
+                    [ text "Last done "
+                    , text (String.fromInt (lastDoneDiff // dayInMilliseconds))
+                    , text " day(s) ago"
+                    ]
         , button [ onClick (JobDone id) ] [ text "Done" ]
         , button [ onClick (DeleteJob id) ] [ text "Delete" ]
         ]
@@ -179,7 +193,7 @@ viewJobs model =
                             |> Maybe.map
                                 (\amount ->
                                     { overDueBy = amount
-                                    , html = viewJob id job
+                                    , html = viewJob model id job
                                     }
                                 )
                     )
@@ -187,7 +201,7 @@ viewJobs model =
                 |> List.reverse
                 |> List.map .html
     in
-    ol [] jobsHtmlByDue
+    ol [ class "jobList" ] jobsHtmlByDue
 
 
 viewNewJob : JobForm -> Html Msg
