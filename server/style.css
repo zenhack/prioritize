@@ -23,3 +23,7 @@
 .jobList {
 	padding: 0.5em;
 }
+
+input {
+	font-size: 16px;
+}
