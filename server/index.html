@@ -10,6 +10,7 @@
           flags: {
             data: "{{ .Data }}",
             now: Date.now(),
+            timezoneOffset: (new Date()).getTimezoneOffset(),
           },
         });
       });

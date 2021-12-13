@@ -20,6 +20,7 @@ dayInMilliseconds =
 type alias Flags =
     { now : Int
     , data : String
+    , timezoneOffset : Int
     }
 
 
@@ -33,6 +34,7 @@ type alias Model =
     , nextId : JobId
     , now : Time.Posix
     , showNotDue : Bool
+    , timezone : Time.Zone
     }
 
 
@@ -71,8 +73,26 @@ makeJob jobForm =
                         }
 
 
-overDue : Time.Posix -> Job -> Int
-overDue now job =
+truncateToDay : Time.Zone -> Time.Posix -> Time.Posix
+truncateToDay zone time =
+    let
+        s =
+            Time.toSecond zone time
+
+        m =
+            Time.toMinute zone time
+
+        h =
+            Time.toHour zone time
+
+        millis =
+            ((((h * 60) + m) * 60) + s) * 1000
+    in
+    Time.millisToPosix (Time.posixToMillis time - millis)
+
+
+overDue : Time.Zone -> Time.Posix -> Job -> Int
+overDue here now job =
     case job.lastDone of
         Nothing ->
             -- If the job has literally never been done, treat it as very
@@ -82,14 +102,14 @@ overDue now job =
 
         Just lastDone ->
             let
-                nowMillis =
-                    Time.posixToMillis now
+                todayMillis =
+                    Time.posixToMillis (truncateToDay here now)
 
                 dueMillis =
-                    Time.posixToMillis lastDone + job.period
+                    Time.posixToMillis (truncateToDay here lastDone) + job.period
 
                 overDueBy =
-                    nowMillis - dueMillis
+                    todayMillis - dueMillis
             in
             overDueBy
 
@@ -138,6 +158,7 @@ init flags =
       , nextId = nextId
       , now = Time.millisToPosix flags.now
       , showNotDue = False
+      , timezone = Time.customZone flags.timezoneOffset []
       }
     , Cmd.none
     )
@@ -188,7 +209,7 @@ viewJobs model =
             Dict.toList model.jobs
                 |> List.map
                     (\( id, job ) ->
-                        { overDueBy = overDue model.now job
+                        { overDueBy = overDue model.timezone model.now job
                         , html = viewJob model id job
                         }
                     )
