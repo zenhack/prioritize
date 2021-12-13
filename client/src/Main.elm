@@ -5,8 +5,8 @@ import Browser
 import Dict exposing (Dict)
 import GenAccessors as GA
 import Html exposing (..)
-import Html.Attributes exposing (class, disabled, for, name, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Attributes exposing (checked, class, disabled, for, name, type_, value)
+import Html.Events exposing (onCheck, onClick, onInput)
 import Http
 import Json.Decode as D
 import Json.Encode as E
@@ -32,6 +32,7 @@ type alias Model =
     , newJob : JobForm
     , nextId : JobId
     , now : Time.Posix
+    , showNotDue : Bool
     }
 
 
@@ -106,6 +107,7 @@ type alias Accessor super sub =
 
 type Msg
     = UpdateFormField (Accessor JobForm String) String
+    | SetShowNotDue Bool
     | NewJob Job
     | JobDone JobId
     | DeleteJob JobId
@@ -135,6 +137,7 @@ init flags =
       , newJob = initJobForm
       , nextId = nextId
       , now = Time.millisToPosix flags.now
+      , showNotDue = False
       }
     , Cmd.none
     )
@@ -144,8 +147,8 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Task List"
     , body =
-        [ viewJobs model
-        , viewNewJob model.newJob
+        [ viewNewJob model.newJob
+        , viewJobs model
         ]
     }
 
@@ -181,7 +184,7 @@ viewJob { now } id job =
 viewJobs : Model -> Html Msg
 viewJobs model =
     let
-        jobsHtmlByDue =
+        ( overDueJobs, notDueJobs ) =
             Dict.toList model.jobs
                 |> List.map
                     (\( id, job ) ->
@@ -191,10 +194,31 @@ viewJobs model =
                     )
                 |> List.sortBy .overDueBy
                 |> List.reverse
-                |> List.filter (\v -> v.overDueBy >= 0)
-                |> List.map .html
+                |> List.partition (\v -> v.overDueBy >= 0)
+                |> Tuple.mapBoth (List.map .html) (List.map .html)
+
+        jobList =
+            ol [ class "jobList" ]
     in
-    ol [ class "jobList" ] jobsHtmlByDue
+    div []
+        (List.concat
+            [ [ jobList overDueJobs ]
+            , [ input
+                    [ name "showNotDue"
+                    , type_ "checkbox"
+                    , checked model.showNotDue
+                    , onCheck SetShowNotDue
+                    ]
+                    []
+              , label [ for "showNotDue" ] [ text "Show not yet due" ]
+              ]
+            , if model.showNotDue then
+                [ jobList notDueJobs ]
+
+              else
+                []
+            ]
+        )
 
 
 viewNewJob : JobForm -> Html Msg
@@ -234,6 +258,11 @@ viewNewJob jobForm =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        SetShowNotDue val ->
+            ( { model | showNotDue = val }
+            , Cmd.none
+            )
+
         UpdateFormField accessor value ->
             ( Accessors.set (GA.newJob << accessor) value model
             , Cmd.none
