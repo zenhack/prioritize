@@ -1,6 +1,8 @@
 
 :root {
 	font-size: 12pt;
+	color: black;
+	background-color: white;
 }
 
 .job {
@@ -22,6 +24,11 @@
 
 .jobList {
 	padding: 0.5em;
+}
+
+.showNotDue {
+	color: black;
+	text-decoration: none;
 }
 
 input {

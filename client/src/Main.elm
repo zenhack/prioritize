@@ -5,7 +5,7 @@ import Browser
 import Dict exposing (Dict)
 import GenAccessors as GA
 import Html exposing (..)
-import Html.Attributes exposing (checked, class, disabled, for, name, type_, value)
+import Html.Attributes exposing (checked, class, disabled, for, href, name, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Http
 import Json.Decode as D
@@ -231,7 +231,15 @@ viewJobs model =
                     , onCheck SetShowNotDue
                     ]
                     []
-              , label [ for "showNotDue" ] [ text "Show not yet due" ]
+              , label
+                    [ for "showNotDue" ]
+                    [ a
+                        [ href "#"
+                        , class "showNotDue"
+                        , onClick (SetShowNotDue (not model.showNotDue))
+                        ]
+                        [ text "Show not yet due" ]
+                    ]
               ]
             , if model.showNotDue then
                 [ jobList notDueJobs ]
