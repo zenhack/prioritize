@@ -15,7 +15,7 @@ import (
 
 var (
 	// Where to store our data:
-	dataPath = os.Getenv("PAPP_DATA")
+	dataDir = os.Getenv("PAPP_DATA_DIR")
 
 	debugElm = os.Getenv("PAPP_ELM_DEBUG") != ""
 	jsPath   = os.Getenv("PAPP_JSPATH")
@@ -44,7 +44,7 @@ func chkfatal(err error) {
 }
 
 func main() {
-	data, err := ioutil.ReadFile(dataPath)
+	data, err := ioutil.ReadFile(dataDir + "/data.json")
 	if errors.Is(err, fs.ErrNotExist) {
 		data = nil
 	} else {
@@ -100,14 +100,14 @@ func main() {
 		paramsLock.Lock()
 		defer paramsLock.Unlock()
 		templateParams.Data = string(newData)
-		err = ioutil.WriteFile(dataPath+".tmp", newData, 0600)
+		err = ioutil.WriteFile(dataDir+"/data.json.tmp", newData, 0600)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
 		}
-		err = os.Rename(dataPath+".tmp", dataPath)
+		err = os.Rename(dataDir+"/data.json.tmp", dataDir+"/data.json")
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusInternalServerError)
