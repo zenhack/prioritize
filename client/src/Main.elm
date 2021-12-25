@@ -21,6 +21,7 @@ type alias Flags =
     { now : Int
     , data : String
     , timezoneOffset : Int
+    , csrfToken : String
     }
 
 
@@ -35,6 +36,7 @@ type alias Model =
     , now : Time.Posix
     , showNotDue : Bool
     , timezone : Time.Zone
+    , csrfToken : String
     }
 
 
@@ -157,6 +159,7 @@ init flags =
       , now = Time.millisToPosix flags.now
       , showNotDue = False
       , timezone = Time.customZone flags.timezoneOffset []
+      , csrfToken = flags.csrfToken
       }
     , Cmd.none
     )
@@ -371,10 +374,16 @@ subscriptions _ =
 
 saveData : Model -> Cmd Msg
 saveData model =
-    Http.post
-        { url = "/data"
+    Http.request
+        { method = "POST"
+        , headers =
+            [ Http.header "X-CSRF-Token" model.csrfToken
+            ]
+        , url = "/data"
         , body = Http.jsonBody (encodeJobs model.jobs)
         , expect = Http.expectWhatever SaveResponse
+        , timeout = Nothing
+        , tracker = Nothing
         }
 
 

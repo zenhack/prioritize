@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	_ "embed"
 	"errors"
 	"html/template"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/gorilla/csrf"
 )
 
 var (
@@ -34,7 +37,8 @@ var (
 )
 
 type TemplateParams struct {
-	Data string
+	Data      string
+	CSRFToken string
 }
 
 func chkfatal(err error) {
@@ -43,7 +47,34 @@ func chkfatal(err error) {
 	}
 }
 
+func getCsrfKey() []byte {
+	// load the csrf key from disk, or generate a new one if not found:
+	path := dataDir + "/csrfkey"
+	data, err := ioutil.ReadFile(dataDir + "/csrfkey")
+	const keyLength = 32
+	if err == nil && len(data) == keyLength {
+		return data
+	}
+	if err == nil || errors.Is(err, os.ErrNotExist) {
+		// No key yet; generate & save one.
+		//
+		// if err == nil, that means the key was the wrong length.
+		// Maybe that could happen if the write gets truncated
+		// when saving? Probably not actually possible with most
+		// filesystems though, but we may as well handle it.
+		data = make([]byte, keyLength)
+		_, err := rand.Read(data)
+		chkfatal(err)
+		chkfatal(ioutil.WriteFile(path, data, 0600))
+		return data
+	}
+	panic(err)
+
+}
+
 func main() {
+	CSRF := csrf.Protect(getCsrfKey())
+
 	data, err := ioutil.ReadFile(dataDir + "/data.json")
 	if errors.Is(err, fs.ErrNotExist) {
 		data = nil
@@ -60,7 +91,7 @@ func main() {
 
 	indexTemplate := template.Must(template.New("index").Parse(templateData))
 
-	templateParams := &TemplateParams{
+	baseTemplateParams := TemplateParams{
 		Data: string(data),
 	}
 	paramsLock := &sync.RWMutex{}
@@ -77,14 +108,16 @@ func main() {
 		w.Write(stylesheet)
 	})
 
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+	http.Handle("/", CSRF(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		paramsLock.RLock()
-		defer paramsLock.RUnlock()
+		templateParams := baseTemplateParams
+		paramsLock.RUnlock()
+		templateParams.CSRFToken = csrf.Token(req)
 		indexTemplate.Execute(w, templateParams)
-	})
+	})))
 
-	http.HandleFunc("/data", func(w http.ResponseWriter, req *http.Request) {
+	http.Handle("/data", CSRF(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != "POST" {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -97,9 +130,11 @@ func main() {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+
 		paramsLock.Lock()
-		defer paramsLock.Unlock()
-		templateParams.Data = string(newData)
+		baseTemplateParams.Data = string(newData)
+		paramsLock.Unlock()
+
 		err = ioutil.WriteFile(dataDir+"/data.json.tmp", newData, 0600)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
@@ -114,7 +149,7 @@ func main() {
 			w.Write([]byte(err.Error()))
 			return
 		}
-	})
+	})))
 
 	panic(http.ListenAndServe(":8000", nil))
 }

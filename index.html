@@ -11,6 +11,7 @@
             data: "{{ .Data }}",
             now: Date.now(),
             timezoneOffset: (new Date()).getTimezoneOffset(),
+            csrfToken: "{{ .CSRFToken }}",
           },
         });
       });
