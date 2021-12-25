@@ -96,9 +96,12 @@ overDue here now job =
     case job.lastDone of
         Nothing ->
             -- If the job has literally never been done, treat it as very
-            -- overdue. TODO: figure out if elm has a max int constant
-            -- somewhere.
-            1000 * dayInMilliseconds
+            -- overdue. N.B. there is no "max integer" constant in elm,
+            -- and we probably don't want to get too close to that anyway,
+            -- as it would run the risk of integer overflow. Instead, we
+            -- just pick a number that is big enough for practical purposes:
+            -- roughly ten years.
+            10 * 365 * dayInMilliseconds
 
         Just lastDone ->
             let
