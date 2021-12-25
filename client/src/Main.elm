@@ -37,6 +37,7 @@ type alias Model =
     , showNotDue : Bool
     , timezone : Time.Zone
     , csrfToken : String
+    , saveError : Maybe Http.Error
     }
 
 
@@ -160,6 +161,7 @@ init flags =
       , showNotDue = False
       , timezone = Time.customZone flags.timezoneOffset []
       , csrfToken = flags.csrfToken
+      , saveError = Nothing
       }
     , Cmd.none
     )
@@ -169,10 +171,43 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Task List"
     , body =
-        [ viewNewJob model.newJob
+        [ viewError model.saveError
+        , viewNewJob model.newJob
         , viewJobs model
         ]
     }
+
+
+viewError : Maybe Http.Error -> Html msg
+viewError maybeErr =
+    case maybeErr of
+        Nothing ->
+            div [] []
+
+        Just err ->
+            div [ class "errorBox" ]
+                [ p []
+                    [ text "Error saving data: "
+                    , text <|
+                        case err of
+                            Http.BadUrl url ->
+                                -- Should never happen; indicative of a bug in our code.
+                                "BUG: provided bad url: " ++ url
+
+                            Http.Timeout ->
+                                "request timed out"
+
+                            Http.NetworkError ->
+                                "network error"
+
+                            Http.BadStatus status ->
+                                "the server returned an error: " ++ String.fromInt status
+
+                            Http.BadBody msg ->
+                                -- Should never happen, since we use expectWhatever.
+                                "Parsing the body failed: " ++ msg
+                    ]
+                ]
 
 
 viewJob : { r | timezone : Time.Zone, now : Time.Posix } -> JobId -> Job -> Html Msg
@@ -360,9 +395,15 @@ update msg model =
             , Cmd.none
             )
 
-        SaveResponse _ ->
-            -- TODO: react in some way. Probably should report errors.
-            ( model, Cmd.none )
+        SaveResponse (Ok _) ->
+            ( { model | saveError = Nothing }
+            , Cmd.none
+            )
+
+        SaveResponse (Err e) ->
+            ( { model | saveError = Just e }
+            , Cmd.none
+            )
 
 
 subscriptions : Model -> Sub Msg
