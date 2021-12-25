@@ -29,10 +29,10 @@ var (
 	//go:embed style.css
 	stylesheet []byte
 
-	//go:embed client/elm.opt.js
+	//go:embed elm.opt.js
 	elmOptJs []byte
 
-	//go:embed client/elm.debug.js
+	//go:embed elm.debug.js
 	elmDebugJs []byte
 )
 

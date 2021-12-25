@@ -1,7 +1,7 @@
 {
     "type": "application",
     "source-directories": [
-        "src", "gen"
+        "client/src", "client/gen"
     ],
     "elm-version": "0.19.1",
     "dependencies": {

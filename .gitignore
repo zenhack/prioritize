@@ -1,3 +1,6 @@
 /prioritize-app-server
 /dev
 *.spk
+
+/elm-stuff
+/elm.*.js
