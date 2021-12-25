@@ -12,6 +12,7 @@
             now: Date.now(),
             timezoneOffset: (new Date()).getTimezoneOffset(),
             csrfToken: "{{ .CSRFToken }}",
+            dataVersion: {{ .Version }},
           },
         });
       });

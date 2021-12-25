@@ -39,6 +39,7 @@ var (
 type TemplateParams struct {
 	Data      string
 	CSRFToken string
+	Version   int
 }
 
 func chkfatal(err error) {
@@ -92,7 +93,8 @@ func main() {
 	indexTemplate := template.Must(template.New("index").Parse(templateData))
 
 	baseTemplateParams := TemplateParams{
-		Data: string(data),
+		Data:    string(data),
+		Version: 0,
 	}
 	paramsLock := &sync.RWMutex{}
 
@@ -122,6 +124,7 @@ func main() {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+
 		newData, err := io.ReadAll(req.Body)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
@@ -129,11 +132,18 @@ func main() {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 
 		paramsLock.Lock()
+		defer paramsLock.Unlock()
+		versionStr := strconv.Itoa(baseTemplateParams.Version)
+		if req.Header.Get("X-Sandstorm-App-Data-Version") != versionStr {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
 		baseTemplateParams.Data = string(newData)
-		paramsLock.Unlock()
+		baseTemplateParams.Version++
+
+		w.WriteHeader(http.StatusOK)
 
 		err = ioutil.WriteFile(dataDir+"/data.json.tmp", newData, 0600)
 		if err != nil {

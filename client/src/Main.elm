@@ -22,6 +22,7 @@ type alias Flags =
     , data : String
     , timezoneOffset : Int
     , csrfToken : String
+    , dataVersion : Int
     }
 
 
@@ -38,6 +39,7 @@ type alias Model =
     , timezone : Time.Zone
     , csrfToken : String
     , saveError : Maybe Http.Error
+    , dataVersion : Int
     }
 
 
@@ -162,6 +164,7 @@ init flags =
       , timezone = Time.customZone flags.timezoneOffset []
       , csrfToken = flags.csrfToken
       , saveError = Nothing
+      , dataVersion = flags.dataVersion
       }
     , Cmd.none
     )
@@ -199,6 +202,9 @@ viewError maybeErr =
 
                             Http.NetworkError ->
                                 "network error"
+
+                            Http.BadStatus 409 ->
+                                "The grain has been updated by another computer or browser tab; please refresh your browser."
 
                             Http.BadStatus status ->
                                 "the server returned an error: " ++ String.fromInt status
@@ -396,7 +402,10 @@ update msg model =
             )
 
         SaveResponse (Ok _) ->
-            ( { model | saveError = Nothing }
+            ( { model
+                | saveError = Nothing
+                , dataVersion = model.dataVersion + 1
+              }
             , Cmd.none
             )
 
@@ -419,6 +428,7 @@ saveData model =
         { method = "POST"
         , headers =
             [ Http.header "X-CSRF-Token" model.csrfToken
+            , Http.header "X-Sandstorm-App-Data-Version" (String.fromInt model.dataVersion)
             ]
         , url = "/data"
         , body = Http.jsonBody (encodeJobs model.jobs)
