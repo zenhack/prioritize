@@ -5,11 +5,11 @@
 client/elm.opt.js
 etc/ld.so.cache
 lib64
+prioritize-app-server
 proc/cpuinfo
 sandstorm-http-bridge
 sandstorm-http-bridge-config
 sandstorm-manifest
-server/prioritize-app-server
 usr/lib/ld-2.33.so
 usr/lib/ld-linux-x86-64.so.2
 usr/lib/libc-2.33.so

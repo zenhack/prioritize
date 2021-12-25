@@ -2,13 +2,13 @@
 ELM_SRCS := $(shell find client/src -type f -name '*.elm') \
 	    client/elm.json \
 	    client/gen/GenAccessors.elm
-GO_SRCS := $(shell find server -type f -name '*.go') \
-	   server/index.html \
-	   server/style.css
+GO_SRCS := $(shell find * -type f -name '*.go') \
+	   index.html \
+	   style.css
 
 ELM_MAKE_CMD := cd client && elm make src/Main.elm --output
 
-server_exe := server/prioritize-app-server
+server_exe := prioritize-app-server
 
 all: client/elm.opt.js client/elm.debug.js $(server_exe)
 
@@ -28,7 +28,7 @@ clean:
 	rm -f $(server_exe)
 
 $(server_exe): $(GO_SRCS)
-	cd server && go build
+	go build
 
 client/elm.opt.js: $(ELM_SRCS)
 	$(ELM_MAKE_CMD) `basename $@` --optimize

@@ -2,4 +2,4 @@
 set -eu
 cd "$(dirname $0)"
 . env.sh
-exec ./server/prioritize-app-server
+exec ./prioritize-app-server
