@@ -172,8 +172,15 @@ view model =
     }
 
 
-viewJob : { r | now : Time.Posix } -> JobId -> Job -> Html Msg
-viewJob { now } id job =
+viewJob : { r | timezone : Time.Zone, now : Time.Posix } -> JobId -> Job -> Html Msg
+viewJob model id job =
+    let
+        now =
+            truncateToDay model.timezone model.now
+
+        lastDone =
+            Maybe.map (truncateToDay model.timezone) job.lastDone
+    in
     div [ class "job" ]
         [ h1 [] [ text job.title ]
         , p []
@@ -181,14 +188,14 @@ viewJob { now } id job =
             , text (String.fromInt (job.period // dayInMilliseconds))
             , text " day(s)"
             ]
-        , case job.lastDone of
+        , case lastDone of
             Nothing ->
                 p [] [ text "Never done before" ]
 
-            Just lastDone ->
+            Just done ->
                 let
                     lastDoneDiff =
-                        Time.posixToMillis now - Time.posixToMillis lastDone
+                        Time.posixToMillis now - Time.posixToMillis done
                 in
                 p []
                     [ text "Last done "
