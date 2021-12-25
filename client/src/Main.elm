@@ -145,17 +145,12 @@ init flags =
 
                 Err _ ->
                     Dict.empty
-
-        nextId =
-            -- nextId should be one greater than the largest ID so far.
-            Dict.toList jobs
-                |> List.map (\( k, _ ) -> k)
-                |> List.foldl max 0
-                |> (\x -> x + 1)
     in
     ( { jobs = jobs
       , newJob = initJobForm
-      , nextId = nextId
+      , nextId =
+            -- One greater than the largest id so far:
+            List.foldl max 0 (Dict.keys jobs) + 1
       , now = Time.millisToPosix flags.now
       , showNotDue = False
       , timezone = Time.customZone flags.timezoneOffset []
