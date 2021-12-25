@@ -6,11 +6,13 @@ GO_SRCS := $(shell find * -type f -name '*.go') \
 	   index.html \
 	   style.css
 
+elm_exes := client/elm.opt.js client/elm.debug.js
+
 ELM_MAKE_CMD := cd client && elm make src/Main.elm --output
 
 server_exe := prioritize-app-server
 
-all: client/elm.opt.js client/elm.debug.js $(server_exe)
+all: $(server_exe) $(elm_exes)
 
 dev: all
 	spk dev
@@ -27,7 +29,7 @@ clean:
 	rm -f elm.*.js
 	rm -f $(server_exe)
 
-$(server_exe): $(GO_SRCS)
+$(server_exe): $(GO_SRCS) $(elm_exes)
 	go build
 
 client/elm.opt.js: $(ELM_SRCS)

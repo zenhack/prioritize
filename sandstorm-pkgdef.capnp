@@ -240,6 +240,5 @@ const myCommand :Spk.Manifest.Command = (
     # Note that this defines the *entire* environment seen by your app.
     (key = "PATH", value = "/usr/local/bin:/usr/bin:/bin"),
     (key = "PAPP_DATA", value = "/var/data.json"),
-    (key = "PAPP_JSPATH", value = "/client/elm.opt.js"),
   ]
 );

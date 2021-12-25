@@ -17,14 +17,20 @@ var (
 	// Where to store our data:
 	dataPath = os.Getenv("PAPP_DATA")
 
-	// Path to javascript to load:
-	jsPath = os.Getenv("PAPP_JSPATH")
+	debugElm = os.Getenv("PAPP_ELM_DEBUG") != ""
+	jsPath   = os.Getenv("PAPP_JSPATH")
 
 	//go:embed index.html
 	templateData string
 
 	//go:embed style.css
 	stylesheet []byte
+
+	//go:embed client/elm.opt.js
+	elmOptJs []byte
+
+	//go:embed client/elm.debug.js
+	elmDebugJs []byte
 )
 
 type TemplateParams struct {
@@ -45,8 +51,12 @@ func main() {
 		chkfatal(err)
 	}
 
-	jsSrc, err := ioutil.ReadFile(jsPath)
-	chkfatal(err)
+	var jsSrc []byte
+	if debugElm {
+		jsSrc = elmDebugJs
+	} else {
+		jsSrc = elmOptJs
+	}
 
 	indexTemplate := template.Must(template.New("index").Parse(templateData))
 

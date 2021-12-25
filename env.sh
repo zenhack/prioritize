@@ -1,2 +1,2 @@
 export PAPP_DATA=data.json
-export PAPP_JSPATH=client/elm.debug.js
+export PAPP_ELM_DEBUG=1
