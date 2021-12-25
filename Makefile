@@ -26,6 +26,7 @@ prioritize.spk: all
 	spk pack $@
 
 clean:
+	rm -rf elm-stuff
 	rm -f elm.*.js
 	rm -f client/gen/*.elm
 	rm -f $(server_exe)
