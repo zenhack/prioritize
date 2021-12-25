@@ -180,13 +180,17 @@ viewJob model id job =
 
         lastDone =
             Maybe.map (truncateToDay model.timezone) job.lastDone
+
+        periodInDays =
+            job.period // dayInMilliseconds
     in
     div [ class "job" ]
         [ h1 [] [ text job.title ]
         , p []
             [ text "Due every "
-            , text (String.fromInt (job.period // dayInMilliseconds))
-            , text " day(s)"
+            , text (String.fromInt periodInDays)
+            , text " "
+            , text <| pluralizeDays periodInDays
             ]
         , case lastDone of
             Nothing ->
@@ -195,16 +199,32 @@ viewJob model id job =
             Just done ->
                 let
                     lastDoneDiff =
-                        Time.posixToMillis now - Time.posixToMillis done
+                        (Time.posixToMillis now - Time.posixToMillis done) // dayInMilliseconds
                 in
                 p []
                     [ text "Last done "
-                    , text (String.fromInt (lastDoneDiff // dayInMilliseconds))
-                    , text " day(s) ago"
+                    , text (String.fromInt lastDoneDiff)
+                    , text " "
+                    , text <| pluralizeDays lastDoneDiff
+                    , text " ago"
                     ]
         , button [ onClick (JobDone id) ] [ text "Done" ]
         , button [ onClick (DeleteJob id) ] [ text "Delete" ]
         ]
+
+
+pluralizeDays : Int -> String
+pluralizeDays =
+    pluralize "day" "days"
+
+
+pluralize : a -> a -> Int -> a
+pluralize singular plural count =
+    if count == 1 then
+        singular
+
+    else
+        plural
 
 
 viewJobs : Model -> Html Msg
