@@ -158,8 +158,7 @@ type alias Accessor super sub =
 
 
 type Msg
-    = UpdateFormField (Accessor JobForm String) String
-    | UpdateFormSelect UrgencyGrowth -- TODO: fold this into the above.
+    = UpdateFormField (JobForm -> JobForm)
     | SetShowNotDue Bool
     | NewJob Job
     | JobDone JobId
@@ -351,7 +350,7 @@ viewNewJob jobForm =
             [ label [ for "title" ] [ text "Title: " ]
             , input
                 [ name "title"
-                , onInput (UpdateFormField GA.title)
+                , onInput (UpdateFormField << Accessors.set GA.title)
                 , value jobForm.title
                 ]
                 []
@@ -361,7 +360,7 @@ viewNewJob jobForm =
             , input
                 [ type_ "number"
                 , name "peroid"
-                , onInput (UpdateFormField GA.period)
+                , onInput (UpdateFormField << Accessors.set GA.period)
                 , value jobForm.period
                 ]
                 []
@@ -370,7 +369,11 @@ viewNewJob jobForm =
             [ label [ for "urgencyGrowth" ] [ text "Urgency growth rate: " ]
             , select
                 [ name "urgencyGrowth"
-                , onChange (D.map UpdateFormSelect decodeUrgencyGrowth)
+                , onChange
+                    (D.map
+                        (UpdateFormField << Accessors.set GA.urgencyGrowth)
+                        decodeUrgencyGrowth
+                    )
                 ]
                 ([ ( Linear, "linear" )
                  , ( Quadratic, "quadratic" )
@@ -405,13 +408,8 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateFormField accessor value ->
-            ( Accessors.set (GA.newJob << accessor) value model
-            , Cmd.none
-            )
-
-        UpdateFormSelect urgencyGrowth ->
-            ( Accessors.set (GA.newJob << GA.urgencyGrowth) urgencyGrowth model
+        UpdateFormField f ->
+            ( { model | newJob = f model.newJob }
             , Cmd.none
             )
 
