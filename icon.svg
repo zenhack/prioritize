@@ -2,7 +2,7 @@
 <!-- vim: set ts=2 sw=2 noet : -->
 <svg
 	version="1.1" xmlns="http://www.w3.org/2000/svg"
-	height="200" width="200">
+	height="190" width="190">
 	<g>
 		<rect id="box"
 			x="100" y="10"
