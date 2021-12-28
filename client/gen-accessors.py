@@ -2,6 +2,7 @@ FIELDS = [
     'newJob',
     'title',
     'period',
+    'urgencyGrowth',
 ]
 
 print(

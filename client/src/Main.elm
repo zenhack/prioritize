@@ -5,12 +5,13 @@ import Browser
 import Dict exposing (Dict)
 import GenAccessors as GA
 import Html exposing (..)
-import Html.Attributes exposing (checked, class, disabled, for, href, name, type_, value)
+import Html.Attributes exposing (checked, class, disabled, for, href, name, selected, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Http
 import Json.Decode as D
 import Json.Encode as E
 import Time
+import Utils.Events exposing (onChange)
 
 
 dayInMilliseconds =
@@ -46,13 +47,20 @@ type alias Model =
 type alias JobForm =
     { title : String
     , period : String
+    , urgencyGrowth : UrgencyGrowth
     }
+
+
+type UrgencyGrowth
+    = Linear
+    | Quadratic
 
 
 initJobForm : JobForm
 initJobForm =
     { title = ""
     , period = ""
+    , urgencyGrowth = Linear
     }
 
 
@@ -75,6 +83,7 @@ makeJob jobForm =
                         { period = periodDays * dayInMilliseconds
                         , title = jobForm.title
                         , lastDone = Nothing
+                        , urgencyGrowth = jobForm.urgencyGrowth
                         }
 
 
@@ -119,13 +128,28 @@ overDue here now job =
                 overDueBy =
                     todayMillis - dueMillis
             in
-            overDueBy
+            applyUrgency job.urgencyGrowth overDueBy
+
+
+applyUrgency : UrgencyGrowth -> Int -> Int
+applyUrgency urgency x =
+    case urgency of
+        Linear ->
+            x
+
+        Quadratic ->
+            if x > 0 then
+                x * x
+
+            else
+                x
 
 
 type alias Job =
     { title : String
     , period : Int
     , lastDone : Maybe Time.Posix
+    , urgencyGrowth : UrgencyGrowth
     }
 
 
@@ -135,6 +159,7 @@ type alias Accessor super sub =
 
 type Msg
     = UpdateFormField (Accessor JobForm String) String
+    | UpdateFormSelect UrgencyGrowth -- TODO: fold this into the above.
     | SetShowNotDue Bool
     | NewJob Job
     | JobDone JobId
@@ -341,6 +366,25 @@ viewNewJob jobForm =
                 ]
                 []
             ]
+        , div []
+            [ label [ for "urgencyGrowth" ] [ text "Urgency growth rate: " ]
+            , select
+                [ name "urgencyGrowth"
+                , onChange (D.map UpdateFormSelect decodeUrgencyGrowth)
+                ]
+                ([ ( Linear, "linear" )
+                 , ( Quadratic, "quadratic" )
+                 ]
+                    |> List.map
+                        (\( urgency, lbl ) ->
+                            option
+                                [ value lbl
+                                , selected (urgency == jobForm.urgencyGrowth)
+                                ]
+                                [ text lbl ]
+                        )
+                )
+            ]
         , button
             [ case makeJob jobForm of
                 Nothing ->
@@ -363,6 +407,11 @@ update msg model =
 
         UpdateFormField accessor value ->
             ( Accessors.set (GA.newJob << accessor) value model
+            , Cmd.none
+            )
+
+        UpdateFormSelect urgencyGrowth ->
+            ( Accessors.set (GA.newJob << GA.urgencyGrowth) urgencyGrowth model
             , Cmd.none
             )
 
@@ -467,10 +516,31 @@ decodeKv decodeK decodeV =
 
 decodeJob : D.Decoder Job
 decodeJob =
-    D.map3 Job
+    D.map4 Job
         (D.field "title" D.string)
         (D.field "period" D.int)
         (D.field "lastDone" (D.nullable decodePosix))
+        (D.maybe
+            (D.field "urgencyGrowth" decodeUrgencyGrowth)
+            |> D.map (Maybe.withDefault Linear)
+        )
+
+
+decodeUrgencyGrowth : D.Decoder UrgencyGrowth
+decodeUrgencyGrowth =
+    D.string
+        |> D.andThen
+            (\s ->
+                case s of
+                    "linear" ->
+                        D.succeed Linear
+
+                    "quadratic" ->
+                        D.succeed Quadratic
+
+                    _ ->
+                        D.fail ("Unexpected growth function: " ++ s)
+            )
 
 
 decodePosix : D.Decoder Time.Posix
@@ -510,7 +580,21 @@ encodeJob job =
                 Just time ->
                     encodePosix time
           )
+        , ( "urgencyGrowth"
+          , encodeUrgencyGrowth job.urgencyGrowth
+          )
         ]
+
+
+encodeUrgencyGrowth : UrgencyGrowth -> E.Value
+encodeUrgencyGrowth ug =
+    E.string <|
+        case ug of
+            Linear ->
+                "linear"
+
+            Quadratic ->
+                "quadratic"
 
 
 encodePosix : Time.Posix -> E.Value
