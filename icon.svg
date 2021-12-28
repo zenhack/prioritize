@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- vim: set ts=2 sw=2 noet : -->
+<svg
+	version="1.1" xmlns="http://www.w3.org/2000/svg"
+	height="200" width="200">
+	<g>
+		<rect id="box"
+			x="100" y="10"
+			width="80" height="50"
+			rx="15" ry="15"
+			stroke="black" fill="#762F87"
+			/>
+		<use href="#box" y="60" />
+		<use href="#box" y="120" />
+	</g>
+	<g>
+		<path
+			stroke="black"
+			fill="transparent"
+			stroke-width="5"
+			d="M 70,155
+				 h -45
+				 a 15 15 0 0 1 -15 -15
+				 v -90
+				 a 15 15 0 0 1 15 -15
+				 h 55"
+				 />
+		<path
+				d="M 85,35
+					 l -15,15
+					 v -30
+					 z"
+				/>
+	</g>
+</svg>
