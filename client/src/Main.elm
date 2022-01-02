@@ -6,7 +6,7 @@ import Dict exposing (Dict)
 import GenAccessors as GA
 import Html exposing (..)
 import Html.Attributes exposing (checked, class, disabled, for, href, name, selected, type_, value)
-import Html.Events exposing (onCheck, onClick, onInput)
+import Html.Events exposing (onCheck, onClick, onInput, preventDefaultOn)
 import Http
 import Json.Decode as D
 import Json.Encode as E
@@ -329,7 +329,11 @@ viewJobs model =
                     [ a
                         [ href "#"
                         , class "showNotDue"
-                        , onClick (SetShowNotDue (not model.showNotDue))
+                        , preventDefaultOn "click" <|
+                            D.succeed
+                                ( SetShowNotDue (not model.showNotDue)
+                                , True
+                                )
                         ]
                         [ text "Show not yet due" ]
                     ]
