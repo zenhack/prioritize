@@ -20,8 +20,7 @@ var (
 	// Where to store our data:
 	dataDir = os.Getenv("PAPP_DATA_DIR")
 
-	debugElm = os.Getenv("PAPP_ELM_DEBUG") != ""
-	jsPath   = os.Getenv("PAPP_JSPATH")
+	jsPath = os.Getenv("PAPP_JSPATH")
 
 	//go:embed index.html
 	templateData string
@@ -40,6 +39,7 @@ type TemplateParams struct {
 	Data      string
 	CSRFToken string
 	Version   int
+	Debug     bool
 }
 
 func chkfatal(err error) {
@@ -83,13 +83,6 @@ func main() {
 		chkfatal(err)
 	}
 
-	var jsSrc []byte
-	if debugElm {
-		jsSrc = elmDebugJs
-	} else {
-		jsSrc = elmOptJs
-	}
-
 	indexTemplate := template.Must(template.New("index").Parse(templateData))
 
 	baseTemplateParams := TemplateParams{
@@ -98,22 +91,23 @@ func main() {
 	}
 	paramsLock := &sync.RWMutex{}
 
-	http.HandleFunc("/elm.js", func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "application/javascript")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsSrc)))
-		w.Write(jsSrc)
-	})
+	handleStatic := func(path, contentType string, data []byte) {
+		http.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+			w.Write(data)
+		})
+	}
 
-	http.HandleFunc("/style.css", func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "text/css")
-		w.Header().Set("Content-Length", strconv.Itoa(len(stylesheet)))
-		w.Write(stylesheet)
-	})
+	handleStatic("/elm.opt.js", "application/javascript", elmOptJs)
+	handleStatic("/elm.debug.js", "application/javascript", elmDebugJs)
+	handleStatic("/style.css", "text/css", stylesheet)
 
 	http.Handle("/", CSRF(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		paramsLock.RLock()
 		templateParams := baseTemplateParams
+		templateParams.Debug = req.URL.Query().Get("debug") == "1"
 		paramsLock.RUnlock()
 		templateParams.CSRFToken = csrf.Token(req)
 		indexTemplate.Execute(w, templateParams)
