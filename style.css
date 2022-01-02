@@ -26,6 +26,23 @@
 	padding: 0.5em;
 }
 
+.jobForm {
+	display: table;
+}
+
+.jobForm > div {
+	display: table-row;
+}
+
+.jobForm label {
+	display: table-cell;
+	padding-right: 1em;
+}
+
+.jobFormInput {
+	display: table-cell;
+}
+
 .showNotDue {
 	color: black;
 	text-decoration: none;

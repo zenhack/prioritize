@@ -349,11 +349,12 @@ viewJobs model =
 
 viewNewJob : JobForm -> Html Msg
 viewNewJob jobForm =
-    div []
+    div [ class "jobForm" ]
         [ div []
             [ label [ for "title" ] [ text "Title: " ]
             , input
-                [ name "title"
+                [ class "jobFormInput"
+                , name "title"
                 , onInput (UpdateFormField << Accessors.set GA.title)
                 , value jobForm.title
                 ]
@@ -362,7 +363,8 @@ viewNewJob jobForm =
         , div []
             [ label [ for "period" ] [ text "Period (days): " ]
             , input
-                [ type_ "number"
+                [ class "jobFormInput"
+                , type_ "number"
                 , name "peroid"
                 , onInput (UpdateFormField << Accessors.set GA.period)
                 , value jobForm.period
@@ -372,7 +374,8 @@ viewNewJob jobForm =
         , div []
             [ label [ for "urgencyGrowth" ] [ text "Urgency growth rate: " ]
             , select
-                [ name "urgencyGrowth"
+                [ class "jobFormInput"
+                , name "urgencyGrowth"
                 , onChange
                     (D.map
                         (UpdateFormField << Accessors.set GA.urgencyGrowth)
