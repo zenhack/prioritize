@@ -20,7 +20,7 @@ var (
 	// Where to store our data:
 	dataDir = os.Getenv("PAPP_DATA_DIR")
 
-	jsPath = os.Getenv("PAPP_JSPATH")
+	versionPath = dataDir + "/data-version"
 
 	//go:embed index.html
 	templateData string
@@ -48,10 +48,26 @@ func chkfatal(err error) {
 	}
 }
 
+func getVersion() int {
+	data, err := ioutil.ReadFile(versionPath)
+	if err != nil {
+		return 0
+	}
+	i, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return int(i)
+}
+
+func saveVersion(i int) {
+	ioutil.WriteFile(versionPath, []byte(strconv.Itoa(i)), 0600)
+}
+
 func getCsrfKey() []byte {
 	// load the csrf key from disk, or generate a new one if not found:
 	path := dataDir + "/csrfkey"
-	data, err := ioutil.ReadFile(dataDir + "/csrfkey")
+	data, err := ioutil.ReadFile(path)
 	const keyLength = 32
 	if err == nil && len(data) == keyLength {
 		return data
@@ -87,7 +103,7 @@ func main() {
 
 	baseTemplateParams := TemplateParams{
 		Data:    string(data),
-		Version: 0,
+		Version: getVersion(),
 	}
 	paramsLock := &sync.RWMutex{}
 
@@ -146,6 +162,7 @@ func main() {
 			w.Write([]byte(err.Error()))
 			return
 		}
+		saveVersion(baseTemplateParams.Version)
 		err = os.Rename(dataDir+"/data.json.tmp", dataDir+"/data.json")
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
