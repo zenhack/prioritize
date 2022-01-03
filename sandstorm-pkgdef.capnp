@@ -89,12 +89,7 @@ const pkgdef :Spk.PackageDefinition = (
       # title in the grid view in the app market.
 
       screenshots = [
-        # Screenshots to use for marketing purposes.  Examples below.
-        # Sizes are given in device-independent pixels, so if you took these
-        # screenshots on a Retina-style high DPI screen, divide each dimension by two.
-
-        #(width = 746, height = 795, jpeg = embed "path/to/screenshot-1.jpeg"),
-        #(width = 640, height = 480, png = embed "path/to/screenshot-2.png"),
+        (height = 1125, width = 2436, png = embed "screenshot.png"),
       ],
       #changeLog = (defaultText = embed "path/to/sandstorm-specific/changelog.md"),
       # Documents the history of changes in Github-flavored markdown format (with the same restrictions
