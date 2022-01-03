@@ -11,11 +11,16 @@ import Http
 import Json.Decode as D
 import Json.Encode as E
 import Time
+import Units exposing (IntU)
 import Utils.Events exposing (onChange)
 
 
-dayInMilliseconds =
-    1000 * 60 * 60 * 24
+daysToMilliseconds : Units.Conversion Units.Days (Units.Milli Units.Seconds)
+daysToMilliseconds =
+    Units.toMilli
+        |> Units.compose Units.minutesToSeconds
+        |> Units.compose Units.hoursToMinutes
+        |> Units.compose Units.daysToHours
 
 
 type alias Flags =
@@ -80,7 +85,7 @@ makeJob jobForm =
 
                 else
                     Just
-                        { period = periodDays * dayInMilliseconds
+                        { period = Units.to daysToMilliseconds (Units.fromInt periodDays)
                         , title = jobForm.title
                         , lastDone = Nothing
                         , urgencyGrowth = jobForm.urgencyGrowth
@@ -91,22 +96,30 @@ makeJob jobForm =
 truncateToDay : Time.Zone -> Time.Posix -> Time.Posix
 truncateToDay zone time =
     let
+        s : IntU Units.Seconds
         s =
-            Time.toSecond zone time
+            Units.fromInt <| Time.toSecond zone time
 
+        m : IntU Units.Minutes
         m =
-            Time.toMinute zone time
+            Units.fromInt <| Time.toMinute zone time
 
+        h : IntU Units.Hours
         h =
-            Time.toHour zone time
+            Units.fromInt <| Time.toHour zone time
 
         millis =
-            ((((h * 60) + m) * 60) + s) * 1000
+            h
+                |> Units.to Units.hoursToMinutes
+                |> Units.add m
+                |> Units.to Units.minutesToSeconds
+                |> Units.add s
+                |> Units.to Units.toMilli
     in
-    Time.millisToPosix (Time.posixToMillis time - millis)
+    Units.millisToPosix (Units.sub (Units.posixToMillis time) millis)
 
 
-overDue : Time.Zone -> Time.Posix -> Job -> Int
+overDue : Time.Zone -> Time.Posix -> Job -> IntU Units.Days
 overDue here now job =
     case job.lastDone of
         Nothing ->
@@ -116,34 +129,36 @@ overDue here now job =
             -- as it would run the risk of integer overflow. Instead, we
             -- just pick a number that is big enough for practical purposes:
             -- roughly ten years.
-            10 * 365
+            Units.fromInt (10 * 365)
 
         Just lastDone ->
             let
                 todayMillis =
-                    Time.posixToMillis (truncateToDay here now)
+                    Units.posixToMillis (truncateToDay here now)
 
                 dueMillis =
-                    Time.posixToMillis (truncateToDay here lastDone) + job.period
+                    Units.add
+                        (Units.posixToMillis (truncateToDay here lastDone))
+                        job.period
 
                 overDueMillis =
-                    todayMillis - dueMillis
+                    Units.sub todayMillis dueMillis
 
                 overDueBy =
-                    overDueMillis // dayInMilliseconds
+                    Units.fromFloor daysToMilliseconds overDueMillis
             in
             applyUrgency job.urgencyGrowth overDueBy
 
 
-applyUrgency : UrgencyGrowth -> Int -> Int
+applyUrgency : UrgencyGrowth -> IntU Units.Days -> IntU Units.Days
 applyUrgency urgency x =
     case urgency of
         Linear ->
             x
 
         Quadratic ->
-            if x > 0 then
-                x * x
+            if Units.toInt x > 0 then
+                Units.mul x x
 
             else
                 x
@@ -151,7 +166,7 @@ applyUrgency urgency x =
 
 type alias Job =
     { title : String
-    , period : Int
+    , period : IntU (Units.Milli Units.Seconds)
     , lastDone : Maybe Time.Posix
     , urgencyGrowth : UrgencyGrowth
     , editing : Maybe JobForm
@@ -262,7 +277,7 @@ viewJob model id job =
             Maybe.map (truncateToDay model.timezone) job.lastDone
 
         periodInDays =
-            job.period // dayInMilliseconds
+            Units.fromFloor daysToMilliseconds job.period
     in
     div [ class "job" ]
         (case job.editing of
@@ -279,7 +294,7 @@ viewJob model id job =
                 [ h1 [] [ text job.title ]
                 , p []
                     [ text "Due every "
-                    , text (String.fromInt periodInDays)
+                    , text (showDays periodInDays)
                     , text " "
                     , text <| pluralizeDays periodInDays
                     ]
@@ -290,11 +305,12 @@ viewJob model id job =
                     Just done ->
                         let
                             lastDoneDiff =
-                                (Time.posixToMillis now - Time.posixToMillis done) // dayInMilliseconds
+                                Units.sub (Units.posixToMillis now) (Units.posixToMillis done)
+                                    |> Units.fromFloor daysToMilliseconds
                         in
                         p []
                             [ text "Last done "
-                            , text (String.fromInt lastDoneDiff)
+                            , text (showDays lastDoneDiff)
                             , text " "
                             , text <| pluralizeDays lastDoneDiff
                             , text " ago"
@@ -306,9 +322,14 @@ viewJob model id job =
         )
 
 
-pluralizeDays : Int -> String
-pluralizeDays =
-    pluralize "day" "days"
+showDays : IntU Units.Days -> String
+showDays =
+    String.fromInt << Units.toInt
+
+
+pluralizeDays : IntU Units.Days -> String
+pluralizeDays days =
+    pluralize "day" "days" (Units.toInt days)
 
 
 pluralize : a -> a -> Int -> a
@@ -331,9 +352,9 @@ viewJobs model =
                         , html = viewJob model id job
                         }
                     )
-                |> List.sortBy .overDueBy
+                |> List.sortBy (.overDueBy >> Units.toInt)
                 |> List.reverse
-                |> List.partition (\v -> v.overDueBy >= 0)
+                |> List.partition (\v -> Units.toInt v.overDueBy >= 0)
                 |> Tuple.mapBoth (List.map .html) (List.map .html)
 
         jobList =
@@ -533,7 +554,10 @@ activateEditForm job =
         | editing =
             Just
                 { title = job.title
-                , period = String.fromInt (job.period // dayInMilliseconds)
+                , period =
+                    job.period
+                        |> Units.fromFloor daysToMilliseconds
+                        |> showDays
                 , urgencyGrowth = job.urgencyGrowth
                 }
     }
@@ -603,7 +627,7 @@ decodeJob : D.Decoder Job
 decodeJob =
     D.map5 Job
         (D.field "title" D.string)
-        (D.field "period" D.int)
+        (D.field "period" (D.map Units.fromInt D.int))
         (D.field "lastDone" (D.nullable decodePosix))
         (D.maybe
             (D.field "urgencyGrowth" decodeUrgencyGrowth)
@@ -657,7 +681,7 @@ encodeJob : Job -> E.Value
 encodeJob job =
     E.object
         [ ( "title", E.string job.title )
-        , ( "period", E.int job.period )
+        , ( "period", E.int (Units.toInt job.period) )
         , ( "lastDone"
           , case job.lastDone of
                 Nothing ->
