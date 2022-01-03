@@ -84,6 +84,7 @@ makeJob jobForm =
                         , title = jobForm.title
                         , lastDone = Nothing
                         , urgencyGrowth = jobForm.urgencyGrowth
+                        , editing = Nothing
                         }
 
 
@@ -150,6 +151,7 @@ type alias Job =
     , period : Int
     , lastDone : Maybe Time.Posix
     , urgencyGrowth : UrgencyGrowth
+    , editing : Maybe JobForm
     }
 
 
@@ -163,6 +165,7 @@ type Msg
     | NewJob Job
     | JobDone JobId
     | DeleteJob JobId
+    | EditJob JobId
     | NewNow Time.Posix
     | SaveResponse (Result Http.Error ())
 
@@ -199,7 +202,11 @@ view model =
     { title = "Task List"
     , body =
         [ viewError model.saveError
-        , viewNewJob model.newJob
+        , viewJobForm
+            { buttonText = "Create"
+            , form = model.newJob
+            , submit = NewJob
+            }
         , viewJobs model
         ]
     }
@@ -253,32 +260,44 @@ viewJob model id job =
             job.period // dayInMilliseconds
     in
     div [ class "job" ]
-        [ h1 [] [ text job.title ]
-        , p []
-            [ text "Due every "
-            , text (String.fromInt periodInDays)
-            , text " "
-            , text <| pluralizeDays periodInDays
-            ]
-        , case lastDone of
-            Nothing ->
-                p [] [ text "Never done before" ]
+        (case job.editing of
+            Just form ->
+                [ viewJobForm
+                    { buttonText = "Update"
+                    , form = form
+                    , submit = NewJob -- TODO
+                    }
+                ]
 
-            Just done ->
-                let
-                    lastDoneDiff =
-                        (Time.posixToMillis now - Time.posixToMillis done) // dayInMilliseconds
-                in
-                p []
-                    [ text "Last done "
-                    , text (String.fromInt lastDoneDiff)
+            Nothing ->
+                [ h1 [] [ text job.title ]
+                , p []
+                    [ text "Due every "
+                    , text (String.fromInt periodInDays)
                     , text " "
-                    , text <| pluralizeDays lastDoneDiff
-                    , text " ago"
+                    , text <| pluralizeDays periodInDays
                     ]
-        , button [ onClick (JobDone id) ] [ text "Done" ]
-        , button [ onClick (DeleteJob id) ] [ text "Delete" ]
-        ]
+                , case lastDone of
+                    Nothing ->
+                        p [] [ text "Never done before" ]
+
+                    Just done ->
+                        let
+                            lastDoneDiff =
+                                (Time.posixToMillis now - Time.posixToMillis done) // dayInMilliseconds
+                        in
+                        p []
+                            [ text "Last done "
+                            , text (String.fromInt lastDoneDiff)
+                            , text " "
+                            , text <| pluralizeDays lastDoneDiff
+                            , text " ago"
+                            ]
+                , button [ onClick (JobDone id) ] [ text "Done" ]
+                , button [ onClick (DeleteJob id) ] [ text "Delete" ]
+                , button [ onClick (EditJob id) ] [ text "Edit" ]
+                ]
+        )
 
 
 pluralizeDays : Int -> String
@@ -347,8 +366,15 @@ viewJobs model =
         )
 
 
-viewNewJob : JobForm -> Html Msg
-viewNewJob jobForm =
+type alias ViewJobFormArgs =
+    { buttonText : String
+    , form : JobForm
+    , submit : Job -> Msg
+    }
+
+
+viewJobForm : ViewJobFormArgs -> Html Msg
+viewJobForm args =
     div [ class "jobForm" ]
         [ div []
             [ label [ for "title" ] [ text "Title: " ]
@@ -356,7 +382,7 @@ viewNewJob jobForm =
                 [ class "jobFormInput"
                 , name "title"
                 , onInput (UpdateFormField << Accessors.set GA.title)
-                , value jobForm.title
+                , value args.form.title
                 ]
                 []
             ]
@@ -365,9 +391,9 @@ viewNewJob jobForm =
             , input
                 [ class "jobFormInput"
                 , type_ "number"
-                , name "peroid"
+                , name "period"
                 , onInput (UpdateFormField << Accessors.set GA.period)
-                , value jobForm.period
+                , value args.form.period
                 ]
                 []
             ]
@@ -389,21 +415,21 @@ viewNewJob jobForm =
                         (\( urgency, lbl ) ->
                             option
                                 [ value lbl
-                                , selected (urgency == jobForm.urgencyGrowth)
+                                , selected (urgency == args.form.urgencyGrowth)
                                 ]
                                 [ text lbl ]
                         )
                 )
             ]
         , button
-            [ case makeJob jobForm of
+            [ case makeJob args.form of
                 Nothing ->
                     disabled True
 
                 Just job ->
-                    onClick (NewJob job)
+                    onClick (args.submit job)
             ]
-            [ text "Create" ]
+            [ text args.buttonText ]
         ]
 
 
@@ -450,6 +476,11 @@ update msg model =
             in
             ( m, saveData m )
 
+        EditJob jobId ->
+            ( { model | jobs = Dict.update jobId (Maybe.map activateEditForm) model.jobs }
+            , Cmd.none
+            )
+
         NewNow now ->
             ( { model | now = now }
             , Cmd.none
@@ -467,6 +498,18 @@ update msg model =
             ( { model | saveError = Just e }
             , Cmd.none
             )
+
+
+activateEditForm : Job -> Job
+activateEditForm job =
+    { job
+        | editing =
+            Just
+                { title = job.title
+                , period = String.fromInt (job.period // dayInMilliseconds)
+                , urgencyGrowth = job.urgencyGrowth
+                }
+    }
 
 
 subscriptions : Model -> Sub Msg
@@ -521,7 +564,7 @@ decodeKv decodeK decodeV =
 
 decodeJob : D.Decoder Job
 decodeJob =
-    D.map4 Job
+    D.map5 Job
         (D.field "title" D.string)
         (D.field "period" D.int)
         (D.field "lastDone" (D.nullable decodePosix))
@@ -529,6 +572,7 @@ decodeJob =
             (D.field "urgencyGrowth" decodeUrgencyGrowth)
             |> D.map (Maybe.withDefault Linear)
         )
+        (D.succeed Nothing)
 
 
 decodeUrgencyGrowth : D.Decoder UrgencyGrowth
