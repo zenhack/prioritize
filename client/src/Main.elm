@@ -306,7 +306,7 @@ viewJob model id job =
                         let
                             lastDoneDiff =
                                 Units.sub (Units.posixToMillis now) (Units.posixToMillis done)
-                                    |> Units.fromFloor daysToMilliseconds
+                                    |> Units.fromCeil daysToMilliseconds
                         in
                         p []
                             [ text "Last done "
