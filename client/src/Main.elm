@@ -116,7 +116,7 @@ overDue here now job =
             -- as it would run the risk of integer overflow. Instead, we
             -- just pick a number that is big enough for practical purposes:
             -- roughly ten years.
-            10 * 365 * dayInMilliseconds
+            10 * 365
 
         Just lastDone ->
             let
@@ -126,8 +126,11 @@ overDue here now job =
                 dueMillis =
                     Time.posixToMillis (truncateToDay here lastDone) + job.period
 
-                overDueBy =
+                overDueMillis =
                     todayMillis - dueMillis
+
+                overDueBy =
+                    overDueMillis // dayInMilliseconds
             in
             applyUrgency job.urgencyGrowth overDueBy
 
