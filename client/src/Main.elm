@@ -160,12 +160,13 @@ type alias Accessor super sub =
 
 
 type Msg
-    = UpdateFormField (JobForm -> JobForm)
+    = UpdateFormField (Maybe JobId) (JobForm -> JobForm) -- JobId = Nothing means new job.
     | SetShowNotDue Bool
     | NewJob Job
     | JobDone JobId
     | DeleteJob JobId
     | EditJob JobId
+    | UpdateJob JobId Job
     | NewNow Time.Posix
     | SaveResponse (Result Http.Error ())
 
@@ -206,6 +207,7 @@ view model =
             { buttonText = "Create"
             , form = model.newJob
             , submit = NewJob
+            , id = Nothing
             }
         , viewJobs model
         ]
@@ -265,7 +267,8 @@ viewJob model id job =
                 [ viewJobForm
                     { buttonText = "Update"
                     , form = form
-                    , submit = NewJob -- TODO
+                    , submit = UpdateJob id
+                    , id = Just id
                     }
                 ]
 
@@ -370,6 +373,7 @@ type alias ViewJobFormArgs =
     { buttonText : String
     , form : JobForm
     , submit : Job -> Msg
+    , id : Maybe JobId
     }
 
 
@@ -381,7 +385,7 @@ viewJobForm args =
             , input
                 [ class "jobFormInput"
                 , name "title"
-                , onInput (UpdateFormField << Accessors.set GA.title)
+                , onInput (UpdateFormField args.id << Accessors.set GA.title)
                 , value args.form.title
                 ]
                 []
@@ -392,7 +396,7 @@ viewJobForm args =
                 [ class "jobFormInput"
                 , type_ "number"
                 , name "period"
-                , onInput (UpdateFormField << Accessors.set GA.period)
+                , onInput (UpdateFormField args.id << Accessors.set GA.period)
                 , value args.form.period
                 ]
                 []
@@ -404,7 +408,7 @@ viewJobForm args =
                 , name "urgencyGrowth"
                 , onChange
                     (D.map
-                        (UpdateFormField << Accessors.set GA.urgencyGrowth)
+                        (UpdateFormField args.id << Accessors.set GA.urgencyGrowth)
                         decodeUrgencyGrowth
                     )
                 ]
@@ -441,8 +445,21 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateFormField f ->
+        UpdateFormField Nothing f ->
             ( { model | newJob = f model.newJob }
+            , Cmd.none
+            )
+
+        UpdateFormField (Just id) f ->
+            ( { model
+                | jobs =
+                    Dict.update
+                        id
+                        (Maybe.map
+                            (\job -> { job | editing = Maybe.map f job.editing })
+                        )
+                        model.jobs
+              }
             , Cmd.none
             )
 
@@ -481,6 +498,13 @@ update msg model =
             , Cmd.none
             )
 
+        UpdateJob jobId newJob ->
+            let
+                m =
+                    { model | jobs = Dict.update jobId (Maybe.map (updateJob newJob)) model.jobs }
+            in
+            ( m, saveData m )
+
         NewNow now ->
             ( { model | now = now }
             , Cmd.none
@@ -509,6 +533,16 @@ activateEditForm job =
                 , period = String.fromInt (job.period // dayInMilliseconds)
                 , urgencyGrowth = job.urgencyGrowth
                 }
+    }
+
+
+updateJob : Job -> Job -> Job
+updateJob newJob oldJob =
+    { title = newJob.title
+    , period = newJob.period
+    , lastDone = oldJob.lastDone
+    , urgencyGrowth = newJob.urgencyGrowth
+    , editing = Nothing
     }
 
 
