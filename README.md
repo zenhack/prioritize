@@ -1,4 +1,4 @@
-Prioritize is a simple [sandstorm][1] to help keep track of
+Prioritize is a simple [Sandstorm][1] app to help keep track of
 periodic tasks which have some flexibility. Examples: misc. cleaning
 tasks, but also things like getting some exercise.
 
