@@ -106,7 +106,7 @@ fromCeil (Conversion n) (IntU m) =
         base =
             fromFloor (Conversion n) (IntU m)
     in
-    case modBy m n of
+    case m |> modBy n of
         0 ->
             base
 
