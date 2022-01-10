@@ -119,6 +119,12 @@ truncateToDay zone time =
     Units.millisToPosix (Units.sub (Units.posixToMillis time) millis)
 
 
+{-| Return how many days overdue the job is.
+
+May return a negative number if the job is not yet due. Zero means it
+is due today.
+
+-}
 overDue : Time.Zone -> Time.Posix -> Job -> IntU Units.Days
 overDue here now job =
     case job.lastDone of
@@ -147,21 +153,25 @@ overDue here now job =
                 overDueBy =
                     Units.fromFloor daysToMilliseconds overDueMillis
             in
-            applyUrgency job.urgencyGrowth overDueBy
+            overDueBy
 
 
-applyUrgency : UrgencyGrowth -> IntU Units.Days -> IntU Units.Days
+{-| Determine the priority of a job based on its urgency growth rate and
+how many days overdue it is.
+-}
+applyUrgency : UrgencyGrowth -> IntU Units.Days -> Int
 applyUrgency urgency x =
-    case urgency of
-        Linear ->
-            x
-
-        Quadratic ->
-            if Units.toInt x > 0 then
-                Units.mul x x
-
-            else
+    Units.toInt <|
+        case urgency of
+            Linear ->
                 x
+
+            Quadratic ->
+                if Units.toInt x > 0 then
+                    Units.mul x x
+
+                else
+                    x
 
 
 type alias Job =
@@ -348,13 +358,18 @@ viewJobs model =
             Dict.toList model.jobs
                 |> List.map
                     (\( id, job ) ->
-                        { overDueBy = overDue model.timezone model.now job
+                        let
+                            overDueBy =
+                                overDue model.timezone model.now job
+                        in
+                        { overDueBy = overDueBy
                         , html = viewJob model id job
+                        , priority = applyUrgency job.urgencyGrowth overDueBy
                         }
                     )
-                |> List.sortBy (.overDueBy >> Units.toInt)
+                |> List.sortBy .priority
                 |> List.reverse
-                |> List.partition (\v -> Units.toInt v.overDueBy >= 0)
+                |> List.partition (\v -> v.priority >= 0)
                 |> Tuple.mapBoth (List.map .html) (List.map .html)
 
         jobList =
