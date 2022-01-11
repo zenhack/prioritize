@@ -36,13 +36,17 @@ type alias JobId =
     Int
 
 
+type TimeZone
+    = TimeZone (IntU Units.Minutes)
+
+
 type alias Model =
     { jobs : Dict JobId Job
     , newJob : JobForm
     , nextId : JobId
     , now : Time.Posix
     , showNotDue : Bool
-    , timezone : Time.Zone
+    , timezone : TimeZone
     , csrfToken : String
     , saveError : Maybe Http.Error
     , dataVersion : Int
@@ -93,39 +97,13 @@ makeJob jobForm =
                         }
 
 
-truncateToDay : Time.Zone -> Time.Posix -> Time.Posix
-truncateToDay zone time =
-    let
-        s : IntU Units.Seconds
-        s =
-            Units.fromInt <| Time.toSecond zone time
-
-        m : IntU Units.Minutes
-        m =
-            Units.fromInt <| Time.toMinute zone time
-
-        h : IntU Units.Hours
-        h =
-            Units.fromInt <| Time.toHour zone time
-
-        millis =
-            h
-                |> Units.to Units.hoursToMinutes
-                |> Units.add m
-                |> Units.to Units.minutesToSeconds
-                |> Units.add s
-                |> Units.to Units.toMilli
-    in
-    Units.millisToPosix (Units.sub (Units.posixToMillis time) millis)
-
-
 {-| Return how many days overdue the job is.
 
 May return a negative number if the job is not yet due. Zero means it
 is due today.
 
 -}
-overDue : Time.Zone -> Time.Posix -> Job -> IntU Units.Days
+overDue : TimeZone -> Time.Posix -> Job -> IntU Units.Days
 overDue here now job =
     case job.lastDone of
         Nothing ->
@@ -139,19 +117,17 @@ overDue here now job =
 
         Just lastDone ->
             let
-                todayMillis =
-                    Units.posixToMillis (truncateToDay here now)
+                today =
+                    posixToDays here now
 
-                dueMillis =
-                    Units.add
-                        (Units.posixToMillis (truncateToDay here lastDone))
-                        job.period
+                done =
+                    posixToDays here lastDone
 
-                overDueMillis =
-                    Units.sub todayMillis dueMillis
+                due =
+                    Units.add done (jobPeriodInDays job)
 
                 overDueBy =
-                    Units.fromFloor daysToMilliseconds overDueMillis
+                    Units.sub today due
             in
             overDueBy
 
@@ -217,7 +193,7 @@ init flags =
             List.foldl max 0 (Dict.keys jobs) + 1
       , now = Time.millisToPosix flags.now
       , showNotDue = False
-      , timezone = Time.customZone flags.timezoneOffset []
+      , timezone = TimeZone <| Units.fromInt flags.timezoneOffset
       , csrfToken = flags.csrfToken
       , saveError = Nothing
       , dataVersion = flags.dataVersion
@@ -277,17 +253,22 @@ viewError maybeErr =
                 ]
 
 
-viewJob : { r | timezone : Time.Zone, now : Time.Posix } -> JobId -> Job -> Html Msg
+jobPeriodInDays : Job -> IntU Units.Days
+jobPeriodInDays { period } =
+    Units.fromFloor daysToMilliseconds period
+
+
+viewJob : { r | timezone : TimeZone, now : Time.Posix } -> JobId -> Job -> Html Msg
 viewJob model id job =
     let
         now =
-            truncateToDay model.timezone model.now
+            posixToDays model.timezone model.now
 
         lastDone =
-            Maybe.map (truncateToDay model.timezone) job.lastDone
+            Maybe.map (posixToDays model.timezone) job.lastDone
 
         periodInDays =
-            Units.fromFloor daysToMilliseconds job.period
+            jobPeriodInDays job
     in
     div [ class "job" ]
         (case job.editing of
@@ -315,8 +296,7 @@ viewJob model id job =
                     Just done ->
                         let
                             lastDoneDiff =
-                                Units.sub (Units.posixToMillis now) (Units.posixToMillis done)
-                                    |> Units.fromCeil daysToMilliseconds
+                                Units.sub now done
                         in
                         p []
                             [ text "Last done "
@@ -330,6 +310,26 @@ viewJob model id job =
                 , button [ onClick (EditJob id) ] [ text "Edit" ]
                 ]
         )
+
+
+{-| Convert a posix time to a number of days (rounded down) from
+the unix epoch minus the time zone offset.
+-}
+posixToDays : TimeZone -> Time.Posix -> IntU Units.Days
+posixToDays (TimeZone timezoneOffset) time =
+    let
+        offsetMillis =
+            timezoneOffset
+                |> Units.to Units.minutesToSeconds
+                |> Units.to Units.toMilli
+
+        resultMillis =
+            Units.sub
+                (Units.posixToMillis time)
+                offsetMillis
+    in
+    resultMillis
+        |> Units.fromFloor daysToMilliseconds
 
 
 showDays : IntU Units.Days -> String
