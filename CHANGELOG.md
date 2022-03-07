@@ -1,3 +1,8 @@
+# 0.2
+
+- Push updates to clients, so you don't need to refresh if you make
+  a change on another device.
+
 # 0.1.2
 
 - Fix some bugs in time arithmetic that sometimes resulted in odd,
