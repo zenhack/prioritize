@@ -48,7 +48,7 @@ type alias Model =
     , showNotDue : Bool
     , timezone : TimeZone
     , csrfToken : String
-    , saveError : Maybe Http.Error
+    , httpError : Maybe Http.Error
     , dataVersion : Int
     }
 
@@ -173,6 +173,7 @@ type Msg
     | UpdateJob JobId Job
     | NewNow Time.Posix
     | SaveResponse (Result Http.Error ())
+    | FetchUpdateResponse (Result Http.Error (Dict JobId Job))
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -188,25 +189,28 @@ init flags =
     in
     ( { jobs = jobs
       , newJob = initJobForm
-      , nextId =
-            -- One greater than the largest id so far:
-            List.foldl max 0 (Dict.keys jobs) + 1
+      , nextId = nextIdForJobs jobs
       , now = Time.millisToPosix flags.now
       , showNotDue = False
       , timezone = TimeZone <| Units.fromInt flags.timezoneOffset
       , csrfToken = flags.csrfToken
-      , saveError = Nothing
+      , httpError = Nothing
       , dataVersion = flags.dataVersion
       }
-    , Cmd.none
+    , fetchUpdate flags.dataVersion
     )
+
+
+nextIdForJobs jobs =
+    -- One greater than the largest id so far:
+    List.foldl max 0 (Dict.keys jobs) + 1
 
 
 view : Model -> Browser.Document Msg
 view model =
     { title = "Task List"
     , body =
-        [ viewError model.saveError
+        [ viewError model.httpError
         , viewJobForm
             { buttonText = "Create"
             , form = model.newJob
@@ -549,18 +553,39 @@ update msg model =
             , Cmd.none
             )
 
-        SaveResponse (Ok _) ->
-            ( { model
-                | saveError = Nothing
-                , dataVersion = model.dataVersion + 1
-              }
+        SaveResponse (Ok ()) ->
+            ( model
             , Cmd.none
             )
 
         SaveResponse (Err e) ->
-            ( { model | saveError = Just e }
+            ( { model | httpError = Just e }
             , Cmd.none
             )
+
+        FetchUpdateResponse (Err Http.Timeout) ->
+            ( model
+            , fetchUpdate model.dataVersion
+            )
+
+        FetchUpdateResponse (Err e) ->
+            -- TODO: maybe retry on other errors, particularly network errors.
+            -- But we'd want to sleep for a bit to avoid busy-looping if there's
+            -- a persistent failure.
+            ( { model | httpError = Just e }
+            , Cmd.none
+            )
+
+        FetchUpdateResponse (Ok jobs) ->
+            let
+                m =
+                    { model
+                        | jobs = jobs
+                        , nextId = nextIdForJobs jobs
+                        , dataVersion = model.dataVersion + 1
+                    }
+            in
+            ( m, fetchUpdate m.dataVersion )
 
 
 activateEditForm : Job -> Job
@@ -601,12 +626,31 @@ saveData model =
         { method = "POST"
         , headers =
             [ Http.header "X-CSRF-Token" model.csrfToken
-            , Http.header "X-Sandstorm-App-Data-Version" (String.fromInt model.dataVersion)
+            , versionHeader model.dataVersion
             ]
         , url = "/data"
         , body = Http.jsonBody (encodeJobs model.jobs)
         , expect = Http.expectWhatever SaveResponse
         , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+versionHeader version =
+    Http.header "X-Sandstorm-App-Data-Version" (String.fromInt version)
+
+
+fetchUpdate : Int -> Cmd Msg
+fetchUpdate currentVersion =
+    Http.request
+        { method = "GET"
+        , headers =
+            [ versionHeader currentVersion
+            ]
+        , url = "/data"
+        , body = Http.emptyBody
+        , expect = Http.expectJson FetchUpdateResponse decodeJobs
+        , timeout = Just (30 * 1000) -- 30 seconds
         , tracker = Nothing
         }
 

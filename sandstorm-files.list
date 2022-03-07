@@ -10,10 +10,7 @@ proc/cpuinfo
 sandstorm-http-bridge
 sandstorm-http-bridge-config
 sandstorm-manifest
-usr/lib/ld-2.33.so
 usr/lib/ld-linux-x86-64.so.2
-usr/lib/libc-2.33.so
 usr/lib/libc.so.6
-usr/lib/libpthread-2.33.so
 usr/lib/libpthread.so.0
 usr/share/zoneinfo/US/Eastern

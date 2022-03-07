@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -106,6 +107,7 @@ func main() {
 		Version: getVersion(),
 	}
 	paramsLock := &sync.RWMutex{}
+	updateChan := make(chan struct{})
 
 	handleStatic := func(path, contentType string, data []byte) {
 		http.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
@@ -130,45 +132,82 @@ func main() {
 	})))
 
 	http.Handle("/data", CSRF(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.Method != "POST" {
+		switch req.Method {
+		case "GET":
+			paramsLock.Lock()
+
+			versionStr := req.Header.Get("X-Sandstorm-App-Data-Version")
+			version, err := strconv.Atoi(versionStr)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "Invalid version number: %q", versionStr)
+				return
+			}
+			// Wait for a new version
+			newVersion := baseTemplateParams.Version
+			for version >= newVersion {
+				ch := updateChan
+				paramsLock.Unlock()
+				select {
+				case <-ch:
+				case <-req.Context().Done():
+					return
+				}
+				paramsLock.Lock()
+				newVersion = baseTemplateParams.Version
+			}
+			body := []byte(baseTemplateParams.Data)
+			paramsLock.Unlock()
+
+			h := w.Header()
+			h.Set("Content-Type", "application/json")
+			h.Set("Content-Length", strconv.Itoa(len(body)))
+			h.Set("X-Sandstorm-App-Data-Version", strconv.Itoa(newVersion))
+			// Keep the browser from caching the response.
+			h.Set("Cache-Control", "no-store")
+
+			w.WriteHeader(http.StatusOK)
+			w.Write(body)
+		case "POST":
+			newData, err := io.ReadAll(req.Body)
+			if err != nil {
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			paramsLock.Lock()
+			defer paramsLock.Unlock()
+			versionStr := strconv.Itoa(baseTemplateParams.Version)
+			if req.Header.Get("X-Sandstorm-App-Data-Version") != versionStr {
+				w.WriteHeader(http.StatusConflict)
+				return
+			}
+			baseTemplateParams.Data = string(newData)
+			baseTemplateParams.Version++
+			close(updateChan)
+			updateChan = make(chan struct{})
+
+			w.WriteHeader(http.StatusOK)
+
+			err = ioutil.WriteFile(dataDir+"/data.json.tmp", newData, 0600)
+			if err != nil {
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+			saveVersion(baseTemplateParams.Version)
+			err = os.Rename(dataDir+"/data.json.tmp", dataDir+"/data.json")
+			if err != nil {
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
-		newData, err := io.ReadAll(req.Body)
-		if err != nil {
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		paramsLock.Lock()
-		defer paramsLock.Unlock()
-		versionStr := strconv.Itoa(baseTemplateParams.Version)
-		if req.Header.Get("X-Sandstorm-App-Data-Version") != versionStr {
-			w.WriteHeader(http.StatusConflict)
-			return
-		}
-		baseTemplateParams.Data = string(newData)
-		baseTemplateParams.Version++
-
-		w.WriteHeader(http.StatusOK)
-
-		err = ioutil.WriteFile(dataDir+"/data.json.tmp", newData, 0600)
-		if err != nil {
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		saveVersion(baseTemplateParams.Version)
-		err = os.Rename(dataDir+"/data.json.tmp", dataDir+"/data.json")
-		if err != nil {
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
 		}
 	})))
 
