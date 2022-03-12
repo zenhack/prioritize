@@ -10,6 +10,8 @@ import Html.Events exposing (onCheck, onClick, onInput, preventDefaultOn)
 import Http
 import Json.Decode as D
 import Json.Encode as E
+import Process
+import Task
 import Time
 import Units exposing (IntU)
 import Utils.Events exposing (onChange)
@@ -173,7 +175,7 @@ type Msg
     | UpdateJob JobId Job
     | NewNow Time.Posix
     | SaveResponse (Result Http.Error ())
-    | FetchUpdateResponse (Result Http.Error (Dict JobId Job))
+    | FetchUpdateResponse (Dict JobId Job)
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -563,20 +565,7 @@ update msg model =
             , Cmd.none
             )
 
-        FetchUpdateResponse (Err Http.Timeout) ->
-            ( model
-            , fetchUpdate model.dataVersion
-            )
-
-        FetchUpdateResponse (Err e) ->
-            -- TODO: maybe retry on other errors, particularly network errors.
-            -- But we'd want to sleep for a bit to avoid busy-looping if there's
-            -- a persistent failure.
-            ( { model | httpError = Just e }
-            , Cmd.none
-            )
-
-        FetchUpdateResponse (Ok jobs) ->
+        FetchUpdateResponse jobs ->
             let
                 m =
                     { model
@@ -642,17 +631,74 @@ versionHeader version =
 
 fetchUpdate : Int -> Cmd Msg
 fetchUpdate currentVersion =
-    Http.request
-        { method = "GET"
-        , headers =
-            [ versionHeader currentVersion
-            ]
-        , url = "/data"
-        , body = Http.emptyBody
-        , expect = Http.expectJson FetchUpdateResponse decodeJobs
-        , timeout = Just (30 * 1000) -- 30 seconds
-        , tracker = Nothing
-        }
+    let
+        go delay =
+            -- Make an http request, and retrywith an expontential backoff
+            -- on failures (the parameter `delay` is doubled on each recursive
+            -- call.
+            Http.task
+                { method = "GET"
+                , headers =
+                    [ versionHeader currentVersion
+                    ]
+                , url = "/data"
+                , body = Http.emptyBody
+                , resolver =
+                    Http.stringResolver
+                        (\resp ->
+                            case resp of
+                                Http.BadUrl_ url ->
+                                    Err (Http.BadUrl url)
+
+                                Http.Timeout_ ->
+                                    Err Http.Timeout
+
+                                Http.NetworkError_ ->
+                                    Err Http.NetworkError
+
+                                Http.BadStatus_ { statusCode } _ ->
+                                    Err (Http.BadStatus statusCode)
+
+                                Http.GoodStatus_ _ body ->
+                                    case D.decodeString decodeJobs body of
+                                        Ok v ->
+                                            Ok v
+
+                                        Err err ->
+                                            Err (Http.BadBody (D.errorToString err))
+                        )
+                , timeout = Just timeout
+                }
+                |> Task.onError
+                    (\e ->
+                        case e of
+                            Http.Timeout ->
+                                -- We reset the delay and try again immediately, since this isn't
+                                -- a "failure," just a normal timeout due to no change.
+                                go startingDelay
+
+                            _ ->
+                                -- Sleep and then try again.
+                                Process.sleep delay
+                                    |> Task.andThen
+                                        (\() ->
+                                            go (delay * 2)
+                                        )
+                    )
+
+        timeout =
+            -- 1 minute
+            60 * 1000
+
+        startingDelay =
+            -- 10ms
+            10
+
+        maxDelay =
+            -- 10 minutes
+            10 * 60 * 1000
+    in
+    Task.perform FetchUpdateResponse (go startingDelay)
 
 
 main =
