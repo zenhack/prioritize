@@ -1,3 +1,8 @@
+# 0.2.1
+
+- Adjust the logic adding it 0.2, such that it gracefully deals with
+  network errors.
+
 # 0.2
 
 - Push updates to clients, so you don't need to refresh if you make
