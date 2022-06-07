@@ -1,6 +1,6 @@
 # 0.2.1
 
-- Adjust the logic adding it 0.2, such that it gracefully deals with
+- Adjust the logic added in 0.2, such that it gracefully deals with
   network errors.
 
 # 0.2
