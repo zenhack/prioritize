@@ -1,3 +1,12 @@
+# 0.3
+
+- The "urgency growth rate" now has an effect a day sooner. Previously,
+  since `x^2` and `x` are the same when x = 1, the ordering of tasks
+  which are one day past due effectively did not take into account their
+  urgency. We now shift things forward a day before doing the
+  computation, so that quadratic is more urgent than linear out of
+  the gate.
+
 # 0.2.1
 
 - Adjust the logic added in 0.2, such that it gracefully deals with
