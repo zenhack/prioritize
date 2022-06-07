@@ -138,18 +138,28 @@ overDue here now job =
 how many days overdue it is.
 -}
 applyUrgency : UrgencyGrowth -> IntU Units.Days -> Int
-applyUrgency urgency x =
-    Units.toInt <|
+applyUrgency urgency days =
+    let
+        daysInt =
+            Units.toInt days
+    in
+    if daysInt < 0 then
+        daysInt
+
+    else
+        let
+            -- If x = 0 or x = 1, then x^2 = x. We want to differentiate
+            -- growth rates even on the first day, so add 2 to avoid
+            -- that case.
+            x =
+                daysInt + 2
+        in
         case urgency of
             Linear ->
                 x
 
             Quadratic ->
-                if Units.toInt x > 0 then
-                    Units.mul x x
-
-                else
-                    x
+                x * x
 
 
 type alias Job =
