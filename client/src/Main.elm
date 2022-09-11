@@ -471,9 +471,9 @@ viewJobForm args =
                         decodeUrgencyGrowth
                     )
                 ]
-                ([ ( Sqrt, "sqrt", "square root" )
-                 , ( Linear, "linear", "linear" )
-                 , ( Quadratic, "quadratic", "quadratic" )
+                ([ ( Sqrt, "sqrt", "Slow (square root)" )
+                 , ( Linear, "linear", "Normal (linear)" )
+                 , ( Quadratic, "quadratic", "Fast (quadratic)" )
                  ]
                     |> List.map
                         (\( urgency, val, lbl ) ->

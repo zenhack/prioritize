@@ -2,6 +2,8 @@
 
 - There is now a square-root urgency growth rate that is slower than
   linear.
+- The urgency growth rates are now labeled with Slow/Normal/Fast, in
+  addition to documenting the actual function.
 
 # 0.3
 
