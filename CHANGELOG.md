@@ -1,3 +1,8 @@
+# 0.4
+
+- There is now a square-root urgency growth rate that is slower than
+  linear.
+
 # 0.3
 
 - The "urgency growth rate" now has an effect a day sooner. Previously,

@@ -63,7 +63,8 @@ type alias JobForm =
 
 
 type UrgencyGrowth
-    = Linear
+    = Sqrt
+    | Linear
     | Quadratic
 
 
@@ -137,24 +138,27 @@ overDue here now job =
 {-| Determine the priority of a job based on its urgency growth rate and
 how many days overdue it is.
 -}
-applyUrgency : UrgencyGrowth -> IntU Units.Days -> Int
+applyUrgency : UrgencyGrowth -> IntU Units.Days -> Float
 applyUrgency urgency days =
     let
         daysInt =
             Units.toInt days
     in
     if daysInt < 0 then
-        daysInt
+        toFloat daysInt
 
     else
         let
-            -- If x = 0 or x = 1, then x^2 = x. We want to differentiate
+            -- If x = 0 or x = 1, then x^2 = x = sqrt x = 1. We want to differentiate
             -- growth rates even on the first day, so add 2 to avoid
             -- that case.
             x =
-                daysInt + 2
+                toFloat <| daysInt + 2
         in
         case urgency of
+            Sqrt ->
+                sqrt x
+
             Linear ->
                 x
 
@@ -467,13 +471,14 @@ viewJobForm args =
                         decodeUrgencyGrowth
                     )
                 ]
-                ([ ( Linear, "linear" )
-                 , ( Quadratic, "quadratic" )
+                ([ ( Sqrt, "sqrt", "square root" )
+                 , ( Linear, "linear", "linear" )
+                 , ( Quadratic, "quadratic", "quadratic" )
                  ]
                     |> List.map
-                        (\( urgency, lbl ) ->
+                        (\( urgency, val, lbl ) ->
                             option
-                                [ value lbl
+                                [ value val
                                 , selected (urgency == args.form.urgencyGrowth)
                                 ]
                                 [ text lbl ]
@@ -757,6 +762,9 @@ decodeUrgencyGrowth =
         |> D.andThen
             (\s ->
                 case s of
+                    "sqrt" ->
+                        D.succeed Sqrt
+
                     "linear" ->
                         D.succeed Linear
 
@@ -815,6 +823,9 @@ encodeUrgencyGrowth : UrgencyGrowth -> E.Value
 encodeUrgencyGrowth ug =
     E.string <|
         case ug of
+            Sqrt ->
+                "sqrt"
+
             Linear ->
                 "linear"
 
