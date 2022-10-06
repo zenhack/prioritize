@@ -63,9 +63,11 @@ type alias JobForm =
 
 
 type UrgencyGrowth
-    = Sqrt
+    = Log
+    | Sqrt
     | Linear
     | Quadratic
+    | Exponential
 
 
 initJobForm : JobForm
@@ -156,6 +158,9 @@ applyUrgency urgency days =
                 toFloat <| daysInt + 2
         in
         case urgency of
+            Log ->
+                logBase 2 x
+
             Sqrt ->
                 sqrt x
 
@@ -164,6 +169,9 @@ applyUrgency urgency days =
 
             Quadratic ->
                 x * x
+
+            Exponential ->
+                2 ^ x
 
 
 type alias Job =
@@ -471,9 +479,11 @@ viewJobForm args =
                         decodeUrgencyGrowth
                     )
                 ]
-                ([ ( Sqrt, "sqrt", "Slow (square root)" )
+                ([ ( Log, "log", "Very slow (logarithmic)" )
+                 , ( Sqrt, "sqrt", "Slow (square root)" )
                  , ( Linear, "linear", "Normal (linear)" )
                  , ( Quadratic, "quadratic", "Fast (quadratic)" )
+                 , ( Exponential, "exponential", "Very fast (exponential)" )
                  ]
                     |> List.map
                         (\( urgency, val, lbl ) ->
@@ -762,6 +772,9 @@ decodeUrgencyGrowth =
         |> D.andThen
             (\s ->
                 case s of
+                    "log" ->
+                        D.succeed Log
+
                     "sqrt" ->
                         D.succeed Sqrt
 
@@ -770,6 +783,9 @@ decodeUrgencyGrowth =
 
                     "quadratic" ->
                         D.succeed Quadratic
+
+                    "exponential" ->
+                        D.succeed Exponential
 
                     _ ->
                         D.fail ("Unexpected growth function: " ++ s)
@@ -823,6 +839,9 @@ encodeUrgencyGrowth : UrgencyGrowth -> E.Value
 encodeUrgencyGrowth ug =
     E.string <|
         case ug of
+            Log ->
+                "log"
+
             Sqrt ->
                 "sqrt"
 
@@ -831,6 +850,9 @@ encodeUrgencyGrowth ug =
 
             Quadratic ->
                 "quadratic"
+
+            Exponential ->
+                "exponential"
 
 
 encodePosix : Time.Posix -> E.Value
