@@ -1,3 +1,8 @@
+# 0.5
+
+- There are now logarithmic (very slow) and exponential (very fast)
+  growth rates available.
+
 # 0.4
 
 - There is now a square-root urgency growth rate that is slower than
